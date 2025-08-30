@@ -9,12 +9,12 @@ func TestLevel_String(t *testing.T) {
 		level Level
 		want  string
 	}{
-		{DebugLevel, "DEBUG"},
-		{InfoLevel, "INFO"},
-		{WarnLevel, "WARN"},
-		{ErrorLevel, "ERROR"},
-		{FatalLevel, "FATAL"},
-		{Level(99), "UNKNOWN"},
+		{DebugLevel, "debug"},
+		{InfoLevel, "info"},
+		{WarnLevel, "warn"},
+		{ErrorLevel, "error"},
+		{FatalLevel, "fatal"},
+		{Level(99), "unknown"},
 	}
 
 	for _, tt := range tests {

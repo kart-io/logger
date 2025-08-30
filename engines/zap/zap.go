@@ -340,7 +340,7 @@ func createStandardizedEncoderConfig() zapcore.EncoderConfig {
 	
 	// Configure time format
 	config.EncodeTime = zapcore.RFC3339NanoTimeEncoder
-	config.EncodeLevel = zapcore.CapitalLevelEncoder
+	config.EncodeLevel = zapcore.LowercaseLevelEncoder
 	config.EncodeCaller = zapcore.ShortCallerEncoder
 	
 	return config

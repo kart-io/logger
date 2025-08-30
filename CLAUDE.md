@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 这是一个 Go 日志库项目 (`github.com/kart-io/logger`)，旨在提供智能 OTLP 配置、多源配置管理，以及跨 GORM、Kratos 等框架的统一日志记录。
 
-**当前状态**：项目已初始化 Go module (Go 1.25.0)，但核心代码尚未实现。需要根据 `docs/REQUIREMENTS.md` 中的详细需求进行开发。
+**当前状态**：项目已初始化 Go module (Go 1.25.0)，核心接口和引擎实现已完成。项目包含完整的双引擎架构、字段标准化系统、配置管理和 OTLP 集成。提供了丰富的使用示例和测试代码。
 
 **核心依赖**：项目基于 Go 标准库 `log/slog` 和高性能日志库 `go.uber.org/zap` 构建，提供统一的日志接口。
 
@@ -45,6 +45,14 @@ go vet ./...
 
 # 检查 Go 版本兼容性
 go mod tidy -go=1.25
+
+# 运行示例（了解项目功能）
+cd example/comprehensive && go run main.go
+cd example/performance && go run main.go
+cd example/otlp && go run main.go
+
+# 运行 OTLP 测试环境（需要 Docker）
+cd otlp-docker && ./deploy.sh
 ```
 
 ## 项目架构
@@ -80,9 +88,9 @@ go mod tidy -go=1.25
 - **统一字段标准化**：确保不同底层库（Zap/Slog）输出完全一致的字段名和格式
 - **增强功能**：支持上下文注入 (`WithCtx`)、字段追加 (`With`)、调用栈跳过 (`WithCallerSkip`) 等
 
-### 核心包结构（规划中）
+### 核心包结构
 
-基于需求文档、双引擎架构和统一字段标准化要求，项目将采用以下包组织：
+基于需求文档、双引擎架构和统一字段标准化要求，项目采用以下包组织：
 
 - **`core/`**: 核心接口定义，包含 `Logger` 接口和 `Level` 类型
 - **`fields/`**: 统一字段定义包，标准化所有日志字段名称和格式
@@ -91,9 +99,10 @@ go mod tidy -go=1.25
 - **`factory/`**: 日志器工厂，根据配置创建具体的引擎实例
 - **`config/`**: 配置管理包，处理多源配置冲突和优先级
 - **`otlp/`**: OTLP 集成包，智能检测和自动配置
-- **`output/`**: 输出路由包，管理日志到控制台/文件/OTLP 的分发
-- **`integrations/`**: 框架集成包，支持 GORM、Kratos 等
-- **`reload/`**: 动态重载包，处理运行时配置变更和回滚
+- **`option/`**: 配置选项包，提供详细的配置验证和标志绑定
+- **`example/`**: 完整的使用示例，包含性能测试和 OTLP 集成演示
+- **`cmd/demo/`**: 命令行演示程序
+- **`otlp-docker/`**: OTLP 测试环境的 Docker 配置
 
 ### 关键组件
 
@@ -171,6 +180,16 @@ go mod tidy -go=1.25
 - 日志输出支持中文字符集
 - 错误消息和状态描述提供中文版本
 - 配置字段支持中文说明和示例
+
+## 示例和测试
+
+项目提供了丰富的示例代码，展示所有功能：
+
+- **`example/comprehensive/`**: 完整的功能演示，包含所有 15 个日志方法
+- **`example/performance/`**: 性能基准测试，比较 Slog 和 Zap 引擎
+- **`example/otlp/`**: OTLP 集成测试，包含多种配置方式
+- **`example/configuration/`**: 配置管理演示，展示多源配置处理
+- **`otlp-docker/`**: 完整的 OTLP 测试环境，包含 Docker Compose 配置
 
 ## 快捷备忘录
 

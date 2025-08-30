@@ -37,7 +37,7 @@ const (
 func DefaultEncoderConfig() *EncoderConfig {
 	return &EncoderConfig{
 		TimeLayout:     time.RFC3339Nano,
-		LevelFormatter: UppercaseLevelFormatter,
+		LevelFormatter: LowercaseLevelFormatter,
 		CallerFormat:   ShortCallerFormatter,
 	}
 }

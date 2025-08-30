@@ -14,8 +14,8 @@ func TestDefaultEncoderConfig(t *testing.T) {
 		t.Errorf("Expected TimeLayout to be RFC3339Nano, got %s", config.TimeLayout)
 	}
 	
-	if config.LevelFormatter != UppercaseLevelFormatter {
-		t.Errorf("Expected LevelFormatter to be UppercaseLevelFormatter, got %v", config.LevelFormatter)
+	if config.LevelFormatter != LowercaseLevelFormatter {
+		t.Errorf("Expected LevelFormatter to be LowercaseLevelFormatter, got %v", config.LevelFormatter)
 	}
 	
 	if config.CallerFormat != ShortCallerFormatter {

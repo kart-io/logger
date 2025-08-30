@@ -1,6 +1,28 @@
 # Logger Usage Examples
 
-This directory contains comprehensive usage examples for the unified logger library. All examples demonstrate the complete functionality of both Slog and Zap engines with consistent APIs and field standardization.
+此目录包含 `github.com/kart-io/logger` 的各种使用示例。为了避免主包的依赖污染，每个示例都有独立的 `go.mod` 文件。
+
+## ⚠️ 重要说明：独立模块架构
+
+**每个示例目录都是独立的 Go 模块**，使用 `replace` 指令引用父包：
+
+```go
+module github.com/kart-io/logger/example/echo
+
+require github.com/kart-io/logger v0.0.0
+replace github.com/kart-io/logger => ../..
+```
+
+### 为什么使用独立的 go.mod？
+
+1. **主包保持精简**：避免 Web 框架等示例依赖污染核心库
+2. **依赖隔离**：每个示例只包含必要的依赖
+3. **更好的维护性**：示例可以独立升级依赖版本
+4. **更快的构建**：主包构建不需要下载示例依赖
+
+## 📁 示例目录结构
+
+每个示例都包含完整的功能演示，展示 Slog 和 Zap 引擎的一致 API 和字段标准化。
 
 ## 📁 Available Examples
 

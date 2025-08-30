@@ -57,6 +57,18 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 	handlerOpts := &slog.HandlerOptions{
 		Level:     mapToSlogLevel(level),
 		AddSource: false, // We'll add standardized caller field ourselves
+		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
+			// Convert level to lowercase for consistent formatting
+			if attr.Key == slog.LevelKey {
+				if level, ok := attr.Value.Any().(slog.Level); ok {
+					return slog.Attr{
+						Key:   attr.Key,
+						Value: slog.StringValue(strings.ToLower(level.String())),
+					}
+				}
+			}
+			return attr
+		},
 	}
 
 	// Create handler based on format
