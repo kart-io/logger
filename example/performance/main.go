@@ -31,13 +31,20 @@ func demonstrateSingleThreadedPerformance() {
 
 	iterations := 10000
 
-	// Test Slog engine
+	// Test Slog engine with OTLP configuration
 	slogOpt := &option.LogOption{
 		Engine:      "slog",
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"/dev/null"}, // Discard output for performance testing
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for performance testing
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-slog",
+			},
+		},
 	}
 
 	slogLogger, err := logger.New(slogOpt)
@@ -61,13 +68,20 @@ func demonstrateSingleThreadedPerformance() {
 	slogDuration := time.Since(start)
 	fmt.Printf("Slog: %d logs in %v (%.2f logs/sec)\n", iterations, slogDuration, float64(iterations)/slogDuration.Seconds())
 
-	// Test Zap engine
+	// Test Zap engine with OTLP configuration
 	zapOpt := &option.LogOption{
 		Engine:      "zap",
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"/dev/null"}, // Discard output for performance testing
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for performance testing
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-zap",
+			},
+		},
 	}
 
 	zapLogger, err := logger.New(zapOpt)
@@ -118,7 +132,14 @@ func demonstrateMultiThreadedPerformance() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"/dev/null"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for performance testing
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-slog-concurrent",
+			},
+		},
 	}
 
 	slogLogger, err := logger.New(slogOpt)
@@ -159,7 +180,14 @@ func demonstrateMultiThreadedPerformance() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"/dev/null"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for performance testing
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-zap-concurrent",
+			},
+		},
 	}
 
 	zapLogger, err := logger.New(zapOpt)
@@ -217,7 +245,14 @@ func demonstrateMemoryUsage() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for memory usage demo
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-memory-slog",
+			},
+		},
 	}
 
 	slogLogger, err := logger.New(slogOpt)
@@ -230,7 +265,14 @@ func demonstrateMemoryUsage() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Disabled for memory usage demo
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "performance-test-memory-zap",
+			},
+		},
 	}
 
 	zapLogger, err := logger.New(zapOpt)
@@ -308,4 +350,9 @@ func demonstrateMemoryUsage() {
 	fmt.Println("- Child loggers (With) reuse field allocations efficiently")
 
 	fmt.Println()
+}
+
+// Helper function to create boolean pointers
+func boolPtr(b bool) *bool {
+	return &b
 }

@@ -57,9 +57,15 @@ func demonstrateBasicConfiguration() {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Endpoint: "",
+			Enabled:  boolPtr(false), // Disabled by default - enable if you have an OTLP collector
+			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for configuration demo
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
+			Headers: map[string]string{
+				"service.name":    "configuration-demo",
+				"service.version": "1.0.0",
+				"environment":     "development",
+			},
 		},
 	}
 
@@ -134,7 +140,15 @@ func demonstrateEnvironmentConfigs() {
 		Format:      "console",
 		OutputPaths: []string{"stdout"},
 		Development: true,
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Usually disabled in development
+			Endpoint: "http://localhost:4317", // Local development collector
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "config-demo-dev",
+				"environment":  "development",
+			},
+		},
 	}
 
 	devLogger, err := logger.New(devOpt)
@@ -158,8 +172,15 @@ func demonstrateEnvironmentConfigs() {
 		OutputPaths: []string{"stdout"},
 		Development: false,
 		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Can be enabled in staging for testing
+			Endpoint: "https://otlp-staging.company.com:4317", // Staging OTLP endpoint
 			Protocol: "grpc",
 			Timeout:  5 * time.Second,
+			Headers: map[string]string{
+				"service.name":    "config-demo-staging",
+				"service.version": "1.0.0",
+				"environment":     "staging",
+			},
 		},
 	}
 
@@ -186,8 +207,17 @@ func demonstrateEnvironmentConfigs() {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Enable in production for observability
+			Endpoint: "https://otlp-prod.company.com:4317", // Production OTLP endpoint
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
+			Headers: map[string]string{
+				"service.name":    "config-demo-production",
+				"service.version": "2.1.0",
+				"environment":     "production",
+				"team":            "platform",
+				"region":          "us-west-2",
+			},
 		},
 	}
 
@@ -219,7 +249,14 @@ func demonstrateOutputConfiguration() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false),
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "config-demo-stdout",
+			},
+		},
 	}
 
 	stdoutLogger, err := logger.New(stdoutOpt)
@@ -236,7 +273,14 @@ func demonstrateOutputConfiguration() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stderr"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false),
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "config-demo-stderr",
+			},
+		},
 	}
 
 	stderrLogger, err := logger.New(stderrOpt)
@@ -254,7 +298,14 @@ func demonstrateOutputConfiguration() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout", "/tmp/app.log"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false),
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "config-demo-multi-output",
+			},
+		},
 	}
 
 	multiLogger, err := logger.New(multiOpt)
@@ -292,7 +343,15 @@ func demonstrateLevelConfiguration() {
 			Level:       level,
 			Format:      "json",
 			OutputPaths: []string{"stdout"},
-			OTLP:        &option.OTLPOption{},
+			OTLP: &option.OTLPOption{
+				Enabled:  boolPtr(false),
+				Endpoint: "http://127.0.0.1:4317",
+				Protocol: "grpc",
+				Headers: map[string]string{
+					"service.name": "config-demo-level-test",
+					"test_level":   level,
+				},
+			},
 		}
 
 		levelLogger, err := logger.New(opt)
@@ -314,7 +373,14 @@ func demonstrateLevelConfiguration() {
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
-		OTLP:        &option.OTLPOption{},
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false),
+			Endpoint: "http://127.0.0.1:4317",
+			Protocol: "grpc",
+			Headers: map[string]string{
+				"service.name": "config-demo-dynamic-level",
+			},
+		},
 	}
 
 	dynamicLogger, err := logger.New(dynamicOpt)
@@ -345,4 +411,9 @@ func getlevelIndex(level string) int {
 		"ERROR": 3,
 	}
 	return levels[level]
+}
+
+// Helper function to create boolean pointers
+func boolPtr(b bool) *bool {
+	return &b
 }

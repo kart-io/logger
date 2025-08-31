@@ -20,13 +20,25 @@ import (
 func main() {
 	println("=== Echo Web Framework Integration Example ===")
 
-	// 1. Setup unified logger
+	// 1. Setup unified logger with OTLP configuration
 	opt := &option.LogOption{
 		Engine:      "zap", // Use zap for high performance
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		Development: false,
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(false), // Enable if you have an OTLP collector running
+			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for web service
+			Protocol: "grpc",
+			Timeout:  10 * time.Second,
+			Headers: map[string]string{
+				"service.name":    "echo-web-service",
+				"service.version": "1.0.0",
+				"framework":       "echo",
+				"environment":     "development",
+			},
+		},
 	}
 
 	coreLogger, err := logger.New(opt)
@@ -451,4 +463,9 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 			},
 		})
 	})
+}
+
+// Helper function to create boolean pointers
+func boolPtr(b bool) *bool {
+	return &b
 }

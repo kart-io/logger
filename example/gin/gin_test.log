@@ -1,0 +1,46 @@
+=== Gin Web Framework Integration Example ===
+Server started on :8080
+Try these endpoints:
+  GET  http://localhost:8080/
+  GET  http://localhost:8080/users/123
+  POST http://localhost:8080/users
+  GET  http://localhost:8080/health
+  GET  http://localhost:8080/slow
+  GET  http://localhost:8080/error
+  GET  http://localhost:8080/panic
+Press Ctrl+C to stop
+{"time":"2025-08-31T22:47:10.022934+08:00","level":"info","msg":"Starting Gin server","engine":"slog","addr":":8080","framework":"gin","caller":"gin/main.go:70"}
+🔍 OTLP Request Debug:
+  Resource attributes: 4
+    [0] service.name = string_value:"kart-io-logger"
+    [1] service.version = string_value:"1.0.0"
+    [2] job = string_value:"kart-io-logger"
+    [3] instance = string_value:"localhost"
+  Log record:
+    Timestamp: 1756651630023138000
+    Severity: INFO (9)
+    Body: Starting Gin server
+    Attributes: 5
+      [0] level = string_value:"info"
+      [1] @timestamp = string_value:"2025-08-31T14:47:10.023138Z"
+      [2] _msg = string_value:"Starting Gin server"
+      [3] addr = string_value:":8080"
+      [4] framework = string_value:"gin"
+✅ gRPC OTLP export successful: 127.0.0.1:4317
+{"time":"2025-08-31T22:47:10.045789+08:00","level":"error","msg":"Server failed to start","engine":"slog","error":"listen tcp :8080: bind: address already in use","caller":"gin/main.go:72","stacktrace":"main.main.func1\\n\\tgin/main.go:72\\nruntime.goexit\\n\\truntime/asm_arm64.s:1268"}
+🔍 OTLP Request Debug:
+  Resource attributes: 4
+    [0] service.name = string_value:"kart-io-logger"
+    [1] service.version = string_value:"1.0.0"
+    [2] job = string_value:"kart-io-logger"
+    [3] instance = string_value:"localhost"
+  Log record:
+    Timestamp: 1756651630045811000
+    Severity: ERROR (17)
+    Body: Server failed to start
+    Attributes: 4
+      [0] level = string_value:"error"
+      [1] @timestamp = string_value:"2025-08-31T14:47:10.045811Z"
+      [2] _msg = string_value:"Server failed to start"
+      [3] error = string_value:"listen tcp :8080: bind: address already in use"
+✅ gRPC OTLP export successful: 127.0.0.1:4317

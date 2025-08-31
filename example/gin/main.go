@@ -19,13 +19,25 @@ import (
 func main() {
 	println("=== Gin Web Framework Integration Example ===")
 
-	// 1. Setup unified logger
+	// 1. Setup unified logger with OTLP configuration
 	opt := &option.LogOption{
 		Engine:      "slog", // Use slog for structured logging
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		Development: false,
+		OTLP: &option.OTLPOption{
+			Enabled:  boolPtr(true), // 启用 OTLP 发送到收集器
+			Endpoint: "127.0.0.1:4317", // gRPC 端点（修正格式）
+			Protocol: "grpc",
+			Timeout:  10 * time.Second,
+			Headers: map[string]string{
+				"service.name":    "gin-web-service",
+				"service.version": "1.0.0",
+				"framework":       "gin",
+				"environment":     "development",
+			},
+		},
 	}
 
 	coreLogger, err := logger.New(opt)
@@ -312,4 +324,9 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 			},
 		})
 	})
+}
+
+// Helper function to create boolean pointers
+func boolPtr(b bool) *bool {
+	return &b
 }
