@@ -9,15 +9,15 @@ import (
 
 func TestDefaultEncoderConfig(t *testing.T) {
 	config := DefaultEncoderConfig()
-	
+
 	if config.TimeLayout != time.RFC3339Nano {
 		t.Errorf("Expected TimeLayout to be RFC3339Nano, got %s", config.TimeLayout)
 	}
-	
+
 	if config.LevelFormatter != LowercaseLevelFormatter {
 		t.Errorf("Expected LevelFormatter to be LowercaseLevelFormatter, got %v", config.LevelFormatter)
 	}
-	
+
 	if config.CallerFormat != ShortCallerFormatter {
 		t.Errorf("Expected CallerFormat to be ShortCallerFormatter, got %v", config.CallerFormat)
 	}
@@ -207,7 +207,7 @@ func TestStandardizedOutput_FieldConsistency(t *testing.T) {
 	// Verify that the JSON keys match our field constants exactly
 	expectedFields := map[string]string{
 		TimestampField: "timestamp",
-		LevelField:     "level", 
+		LevelField:     "level",
 		MessageField:   "message",
 	}
 
@@ -254,7 +254,7 @@ func TestStandardizedOutput_EmptyFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			output := StandardizedOutput{
 				Timestamp: "2023-12-01T10:00:00Z",
-				Level:     "INFO", 
+				Level:     "INFO",
 				Message:   "test",
 				Fields:    tt.fields,
 			}

@@ -8,21 +8,21 @@ import (
 type Adapter interface {
 	// GetLogger returns the logger instance used by this adapter
 	GetLogger() core.Logger
-	
+
 	// SetLogger allows setting a new logger instance
 	SetLogger(logger core.Logger)
-	
+
 	// Name returns the name of the framework this adapter serves
 	Name() string
-	
+
 	// Version returns the version of the framework this adapter supports
 	Version() string
 }
 
 // BaseAdapter provides common functionality for all framework adapters
 type BaseAdapter struct {
-	logger core.Logger
-	name   string
+	logger  core.Logger
+	name    string
 	version string
 }
 
@@ -58,13 +58,13 @@ func (b *BaseAdapter) Version() string {
 // DatabaseAdapter defines additional methods for database framework adapters
 type DatabaseAdapter interface {
 	Adapter
-	
+
 	// LogQuery logs a database query with execution time and parameters
 	LogQuery(query string, duration int64, params ...interface{})
-	
+
 	// LogError logs a database error
 	LogError(err error, query string, params ...interface{})
-	
+
 	// LogSlowQuery logs queries that exceed the slow query threshold
 	LogSlowQuery(query string, duration int64, threshold int64, params ...interface{})
 }
@@ -72,13 +72,13 @@ type DatabaseAdapter interface {
 // HTTPAdapter defines additional methods for HTTP framework adapters
 type HTTPAdapter interface {
 	Adapter
-	
+
 	// LogRequest logs an HTTP request
 	LogRequest(method, path string, statusCode int, duration int64, userID string)
-	
+
 	// LogMiddleware logs middleware execution
 	LogMiddleware(middlewareName string, duration int64)
-	
+
 	// LogError logs HTTP-related errors
 	LogError(err error, method, path string, statusCode int)
 }

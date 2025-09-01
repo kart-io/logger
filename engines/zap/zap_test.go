@@ -216,7 +216,7 @@ func TestZapLogger_StandardizeFields(t *testing.T) {
 	standardized := zapLogger.standardizeFields("ts", "2023-01-01", "msg", "test", "custom", "value")
 
 	expected := []interface{}{fields.TimestampField, "2023-01-01", fields.MessageField, "test", "custom", "value"}
-	
+
 	if len(standardized) != len(expected) {
 		t.Fatalf("Expected %d fields, got %d", len(expected), len(standardized))
 	}

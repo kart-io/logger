@@ -173,7 +173,7 @@ func (l *ZapLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 func (l *ZapLogger) With(keysAndValues ...interface{}) core.Logger {
 	standardizedFields := l.standardizeFields(keysAndValues...)
 	newSugar := l.sugar.With(standardizedFields...)
-	
+
 	return &ZapLogger{
 		logger:       newSugar.Desugar(),
 		sugar:        newSugar,
@@ -193,7 +193,7 @@ func (l *ZapLogger) WithCtx(ctx context.Context, keysAndValues ...interface{}) c
 // WithCallerSkip creates a child logger that skips additional stack frames.
 func (l *ZapLogger) WithCallerSkip(skip int) core.Logger {
 	newLogger := l.logger.WithOptions(zap.AddCallerSkip(skip))
-	
+
 	return &ZapLogger{
 		logger:       newLogger,
 		sugar:        newLogger.Sugar(),
@@ -210,7 +210,7 @@ func (l *ZapLogger) withDynamicCallerSkip() core.Logger {
 	var pcs [10]uintptr
 	n := runtime.Callers(1, pcs[:])
 	hasGlobalCall := false
-	
+
 	if n > 0 {
 		fs := runtime.CallersFrames(pcs[:n])
 		for i := 0; i < n; i++ {
@@ -222,17 +222,17 @@ func (l *ZapLogger) withDynamicCallerSkip() core.Logger {
 			}
 		}
 	}
-	
+
 	// Add extra skip for global calls
 	extraSkip := 0
 	if hasGlobalCall {
 		extraSkip = 1
 	}
-	
+
 	if extraSkip > 0 {
 		return l.WithCallerSkip(extraSkip)
 	}
-	
+
 	return l
 }
 
@@ -247,7 +247,7 @@ func (l *ZapLogger) SetLevel(level core.Level) {
 
 func (l *ZapLogger) standardizeFields(keysAndValues ...interface{}) []interface{} {
 	standardized := make([]interface{}, 0, len(keysAndValues))
-	
+
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			// Odd number of arguments, use empty value for last key
@@ -255,15 +255,15 @@ func (l *ZapLogger) standardizeFields(keysAndValues ...interface{}) []interface{
 			standardized = append(standardized, key, nil)
 			break
 		}
-		
+
 		key := anyToString(keysAndValues[i])
 		value := keysAndValues[i+1]
-		
+
 		// Apply field mapping for consistency
 		standardKey := l.getStandardFieldName(key)
 		standardized = append(standardized, standardKey, value)
 	}
-	
+
 	return standardized
 }
 
@@ -272,12 +272,12 @@ func (l *ZapLogger) getStandardFieldName(fieldName string) string {
 	if mapped, exists := coreMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	tracingMapping := l.mapper.MapTracingFields()
 	if mapped, exists := tracingMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	return fieldName // Return original if no mapping found
 }
 
@@ -330,19 +330,19 @@ func createZapConfig(opt *option.LogOption, level core.Level) zap.Config {
 
 func createStandardizedEncoderConfig() zapcore.EncoderConfig {
 	config := zap.NewProductionEncoderConfig()
-	
+
 	// Use our standardized field names
 	config.TimeKey = fields.TimestampField
 	config.LevelKey = fields.LevelField
 	config.MessageKey = fields.MessageField
 	config.CallerKey = fields.CallerField
 	config.StacktraceKey = fields.StacktraceField
-	
+
 	// Configure time format
 	config.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	config.EncodeLevel = zapcore.LowercaseLevelEncoder
 	config.EncodeCaller = zapcore.ShortCallerEncoder
-	
+
 	return config
 }
 
@@ -400,15 +400,15 @@ func (l *ZapLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...in
 
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
-	
+
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			break
 		}
-		
+
 		key := anyToString(keysAndValues[i])
 		value := keysAndValues[i+1]
-		
+
 		// Apply field mapping
 		standardKey := l.getStandardFieldName(key)
 		attributes[standardKey] = value

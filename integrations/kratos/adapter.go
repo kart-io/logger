@@ -182,10 +182,10 @@ func (k *KratosAdapter) With(keyvals ...interface{}) Logger {
 		BaseAdapter: k.BaseAdapter,
 		keyvals:     make([]interface{}, len(k.keyvals)+len(keyvals)),
 	}
-	
+
 	copy(newAdapter.keyvals, k.keyvals)
 	copy(newAdapter.keyvals[len(k.keyvals):], keyvals)
-	
+
 	return newAdapter
 }
 
@@ -199,7 +199,7 @@ func (k *KratosAdapter) LogRequest(method, path string, statusCode int, duration
 		"status_code", statusCode,
 		"duration_ms", float64(duration) / 1e6,
 	}
-	
+
 	if userID != "" {
 		fields = append(fields, "user_id", userID)
 	}
@@ -250,17 +250,17 @@ func (k *KratosAdapter) LogError(err error, method, path string, statusCode int)
 // extractMessage extracts a message from keyvals, looking for common message keys
 func (k *KratosAdapter) extractMessage(keyvals []interface{}) string {
 	messageKeys := []string{"msg", "message", "event", "description"}
-	
+
 	for i := 0; i < len(keyvals); i += 2 {
 		if i+1 >= len(keyvals) {
 			break
 		}
-		
+
 		key, ok := keyvals[i].(string)
 		if !ok {
 			continue
 		}
-		
+
 		for _, msgKey := range messageKeys {
 			if key == msgKey {
 				if msgValue, ok := keyvals[i+1].(string); ok {
@@ -270,7 +270,7 @@ func (k *KratosAdapter) extractMessage(keyvals []interface{}) string {
 			}
 		}
 	}
-	
+
 	return ""
 }
 

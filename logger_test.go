@@ -35,7 +35,7 @@ func TestNewWithDefaults(t *testing.T) {
 
 func TestGlobalLogger(t *testing.T) {
 	// Test that global logger management works
-	
+
 	// Initially global should be nil
 	if global != nil {
 		t.Error("Expected global logger to be nil initially")
@@ -43,7 +43,7 @@ func TestGlobalLogger(t *testing.T) {
 
 	// Now that slog works, Global() should successfully create a logger
 	globalLogger := Global()
-	
+
 	if globalLogger == nil {
 		t.Error("Expected Global() to return a logger")
 	}
@@ -70,14 +70,14 @@ func TestPackageLevelFunctions(t *testing.T) {
 
 	// These should work now that slog is implemented
 	Debug("test debug")
-	Info("test info") 
+	Info("test info")
 	Warn("test warn")
 	Error("test error")
 
 	// Formatted functions
 	Debugf("test %s", "debug")
 	Infof("test %s", "info")
-	Warnf("test %s", "warn") 
+	Warnf("test %s", "warn")
 	Errorf("test %s", "error")
 
 	// Structured functions
@@ -101,7 +101,7 @@ func TestPackageLevelFunctionsList(t *testing.T) {
 
 	// Basic logging functions
 	_ = Debug
-	_ = Info  
+	_ = Info
 	_ = Warn
 	_ = Error
 	_ = Fatal
@@ -130,7 +130,7 @@ func TestPackageLevelFunctionsList(t *testing.T) {
 func TestNewWithCustomOption(t *testing.T) {
 	customOpt := &option.LogOption{
 		Engine:      "zap", // This will fallback to slog
-		Level:       "DEBUG", 
+		Level:       "DEBUG",
 		Format:      "console",
 		OutputPaths: []string{"stdout"},
 		Development: true,

@@ -201,7 +201,7 @@ func TestValidation_OTLPDefaults(t *testing.T) {
 func TestValidation_IsOTLPEnabledHelper(t *testing.T) {
 	opt := &LogOption{
 		Engine:       "slog",
-		Level:        "INFO", 
+		Level:        "INFO",
 		OTLPEndpoint: "http://localhost:4317",
 		OTLP:         &OTLPOption{},
 	}

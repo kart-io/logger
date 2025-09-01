@@ -109,7 +109,7 @@ func (g *GormAdapter) Trace(ctx context.Context, begin time.Time, fc func() (str
 
 	elapsed := time.Since(begin)
 	sql, rows := fc()
-	
+
 	// Create base fields
 	fields := []interface{}{
 		"sql", sql,
@@ -120,10 +120,10 @@ func (g *GormAdapter) Trace(ctx context.Context, begin time.Time, fc func() (str
 	switch {
 	case err != nil && g.logLevel >= Error && (!g.ignoreRecordNotFoundError || !isRecordNotFoundError(err)):
 		g.LogError(err, sql, fields...)
-		
+
 	case elapsed > g.slowThreshold && g.slowThreshold != 0 && g.logLevel >= Warn:
 		g.LogSlowQuery(sql, elapsed.Nanoseconds(), g.slowThreshold.Nanoseconds(), fields...)
-		
+
 	case g.logLevel >= Info:
 		g.LogQuery(sql, elapsed.Nanoseconds(), fields...)
 	}
@@ -138,7 +138,7 @@ func (g *GormAdapter) LogQuery(query string, duration int64, params ...interface
 		"duration_ns", duration,
 	}
 	fields = append(fields, params...)
-	
+
 	g.GetLogger().Infow("Database query executed", fields...)
 }
 
@@ -151,7 +151,7 @@ func (g *GormAdapter) LogError(err error, query string, params ...interface{}) {
 		"error", err.Error(),
 	}
 	fields = append(fields, params...)
-	
+
 	g.GetLogger().Errorw("Database query failed", fields...)
 }
 
@@ -166,7 +166,7 @@ func (g *GormAdapter) LogSlowQuery(query string, duration int64, threshold int64
 		"slowdown_factor", float64(duration) / float64(threshold),
 	}
 	fields = append(fields, params...)
-	
+
 	g.GetLogger().Warnw("Slow database query detected", fields...)
 }
 

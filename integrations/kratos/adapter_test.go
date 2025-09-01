@@ -22,17 +22,17 @@ type mockCall struct {
 	fields []interface{}
 }
 
-func (m *mockLogger) Debug(args ...interface{})                       {}
-func (m *mockLogger) Info(args ...interface{})                        {}
-func (m *mockLogger) Warn(args ...interface{})                        {}
-func (m *mockLogger) Error(args ...interface{})                       {}
-func (m *mockLogger) Fatal(args ...interface{})                       {}
-func (m *mockLogger) Debugf(template string, args ...interface{})     {}
-func (m *mockLogger) Infof(template string, args ...interface{})      {}
-func (m *mockLogger) Warnf(template string, args ...interface{})      {}
-func (m *mockLogger) Errorf(template string, args ...interface{})     {}
-func (m *mockLogger) Fatalf(template string, args ...interface{})     {}
-func (m *mockLogger) SetLevel(level core.Level)                       {}
+func (m *mockLogger) Debug(args ...interface{})                   {}
+func (m *mockLogger) Info(args ...interface{})                    {}
+func (m *mockLogger) Warn(args ...interface{})                    {}
+func (m *mockLogger) Error(args ...interface{})                   {}
+func (m *mockLogger) Fatal(args ...interface{})                   {}
+func (m *mockLogger) Debugf(template string, args ...interface{}) {}
+func (m *mockLogger) Infof(template string, args ...interface{})  {}
+func (m *mockLogger) Warnf(template string, args ...interface{})  {}
+func (m *mockLogger) Errorf(template string, args ...interface{}) {}
+func (m *mockLogger) Fatalf(template string, args ...interface{}) {}
+func (m *mockLogger) SetLevel(level core.Level)                   {}
 
 func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	m.debugCalls = append(m.debugCalls, mockCall{msg: msg, fields: keysAndValues})
@@ -73,7 +73,7 @@ func TestNewKratosAdapter(t *testing.T) {
 	if adapter.Name() != "Kratos" {
 		t.Errorf("Expected name 'Kratos', got '%s'", adapter.Name())
 	}
-	
+
 	if adapter.Version() != "v2.x" {
 		t.Errorf("Expected version 'v2.x', got '%s'", adapter.Version())
 	}
@@ -232,7 +232,7 @@ func TestKratosAdapter_With(t *testing.T) {
 	fields := mockLog.infoCalls[0].fields
 	foundService := false
 	foundVersion := false
-	
+
 	for i := 0; i < len(fields); i += 2 {
 		if i+1 < len(fields) {
 			if fields[i] == "service" && fields[i+1] == "user-service" {
@@ -243,7 +243,7 @@ func TestKratosAdapter_With(t *testing.T) {
 			}
 		}
 	}
-	
+
 	if !foundService || !foundVersion {
 		t.Error("Expected persistent keyvals to be included in log output")
 	}

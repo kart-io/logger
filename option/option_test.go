@@ -180,7 +180,7 @@ func TestLogOption_resolveOTLPConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.opt.resolveOTLPConfig()
-			
+
 			if got := tt.opt.IsOTLPEnabled(); got != tt.expected {
 				t.Errorf("IsOTLPEnabled() = %v, expected %v", got, tt.expected)
 			}
@@ -241,8 +241,8 @@ func TestLogOption_IsOTLPEnabled(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "nil OTLP",
-			opt:  &LogOption{},
+			name:     "nil OTLP",
+			opt:      &LogOption{},
 			expected: false,
 		},
 	}
@@ -259,7 +259,7 @@ func TestLogOption_IsOTLPEnabled(t *testing.T) {
 func TestLogOption_StructTags(t *testing.T) {
 	// Test that struct fields have correct tags
 	optType := reflect.TypeOf(LogOption{})
-	
+
 	tests := []struct {
 		fieldName string
 		jsonTag   string

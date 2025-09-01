@@ -1,6 +1,7 @@
 package option
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kart-io/logger/core"
@@ -85,6 +86,10 @@ func (opt *LogOption) AddFlags(fs *pflag.FlagSet) {
 
 // Validate checks the configuration for consistency and applies intelligent defaults.
 func (opt *LogOption) Validate() error {
+	if opt == nil {
+		return fmt.Errorf("configuration cannot be nil")
+	}
+
 	// Parse and validate log level
 	if _, err := core.ParseLevel(opt.Level); err != nil {
 		return err

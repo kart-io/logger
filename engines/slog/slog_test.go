@@ -349,7 +349,7 @@ func TestStandardizedHandler_FieldStandardization(t *testing.T) {
 		expected string
 	}{
 		{"ts", fields.TimestampField},
-		{"time", fields.TimestampField}, 
+		{"time", fields.TimestampField},
 		{"msg", fields.MessageField},
 		{"level", fields.LevelField},
 		{"trace.id", fields.TraceIDField},

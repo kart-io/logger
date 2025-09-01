@@ -14,7 +14,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
 
-	"github.com/kart-io/logger/config"
 	"github.com/kart-io/logger/core"
 	"github.com/kart-io/logger/errors"
 	"github.com/kart-io/logger/factory"
@@ -25,8 +24,8 @@ import (
 type ReloadTrigger int
 
 const (
-	TriggerNone      ReloadTrigger = 0
-	TriggerSignal    ReloadTrigger = 1 << iota
+	TriggerNone   ReloadTrigger = 0
+	TriggerSignal ReloadTrigger = 1 << iota
 	TriggerFileWatch
 	TriggerAPI
 	TriggerAll = TriggerSignal | TriggerFileWatch | TriggerAPI
@@ -48,10 +47,10 @@ func (t ReloadTrigger) String() string {
 }
 
 // ReloadCallback is called when configuration is successfully reloaded
-type ReloadCallback func(oldConfig, newConfig *config.Config) error
+type ReloadCallback func(oldConfig, newConfig *option.LogOption) error
 
 // ValidationFunc validates a configuration before applying it
-type ValidationFunc func(*config.Config) error
+type ValidationFunc func(*option.LogOption) error
 
 // ReloadConfig holds configuration for the reloader
 type ReloadConfig struct {
@@ -100,35 +99,35 @@ func DefaultReloadConfig() *ReloadConfig {
 
 // ConfigReloader manages dynamic configuration reloading
 type ConfigReloader struct {
-	mu               sync.RWMutex
-	config           *ReloadConfig
-	currentConfig    *config.Config
-	factory          *factory.LoggerFactory
-	watcher          *fsnotify.Watcher
-	signalChan       chan os.Signal
-	reloadChan       chan *config.Config
-	errorHandler     *errors.ErrorHandler
-	backupConfigs    []*config.Config
-	ctx              context.Context
-	cancel           context.CancelFunc
-	running          bool
+	mu            sync.RWMutex
+	config        *ReloadConfig
+	currentConfig *option.LogOption
+	factory       *factory.LoggerFactory
+	watcher       *fsnotify.Watcher
+	signalChan    chan os.Signal
+	reloadChan    chan *option.LogOption
+	errorHandler  *errors.ErrorHandler
+	backupConfigs []*option.LogOption
+	ctx           context.Context
+	cancel        context.CancelFunc
+	running       bool
 }
 
 // NewConfigReloader creates a new configuration reloader
-func NewConfigReloader(reloadConfig *ReloadConfig, initialConfig *config.Config, factory *factory.LoggerFactory) (*ConfigReloader, error) {
+func NewConfigReloader(reloadConfig *ReloadConfig, initialConfig *option.LogOption, factory *factory.LoggerFactory) (*ConfigReloader, error) {
 	if reloadConfig == nil {
 		reloadConfig = DefaultReloadConfig()
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	reloader := &ConfigReloader{
 		config:        reloadConfig,
 		currentConfig: initialConfig,
 		factory:       factory,
-		reloadChan:    make(chan *config.Config, 10),
+		reloadChan:    make(chan *option.LogOption, 10),
 		errorHandler:  errors.NewErrorHandler(nil),
-		backupConfigs: make([]*config.Config, 0, reloadConfig.BackupRetention),
+		backupConfigs: make([]*option.LogOption, 0, reloadConfig.BackupRetention),
 		ctx:           ctx,
 		cancel:        cancel,
 	}
@@ -216,7 +215,7 @@ func (r *ConfigReloader) Stop() error {
 }
 
 // TriggerReload manually triggers a configuration reload
-func (r *ConfigReloader) TriggerReload(newConfig *config.Config) error {
+func (r *ConfigReloader) TriggerReload(newConfig *option.LogOption) error {
 	if !r.isRunning() {
 		return fmt.Errorf("reloader is not running")
 	}
@@ -230,26 +229,26 @@ func (r *ConfigReloader) TriggerReload(newConfig *config.Config) error {
 }
 
 // GetCurrentConfig returns the current configuration
-func (r *ConfigReloader) GetCurrentConfig() *config.Config {
+func (r *ConfigReloader) GetCurrentConfig() *option.LogOption {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	if r.currentConfig == nil {
 		return nil
 	}
-	
+
 	// Return a copy to prevent external modifications
 	configCopy := *r.currentConfig
 	return &configCopy
 }
 
 // GetBackupConfigs returns the backup configurations
-func (r *ConfigReloader) GetBackupConfigs() []*config.Config {
+func (r *ConfigReloader) GetBackupConfigs() []*option.LogOption {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Return copies to prevent external modifications
-	backups := make([]*config.Config, len(r.backupConfigs))
+	backups := make([]*option.LogOption, len(r.backupConfigs))
 	for i, backup := range r.backupConfigs {
 		configCopy := *backup
 		backups[i] = &configCopy
@@ -268,7 +267,7 @@ func (r *ConfigReloader) RollbackToPrevious() error {
 
 	// Get the most recent backup
 	prevConfig := r.backupConfigs[len(r.backupConfigs)-1]
-	
+
 	// Apply the backup configuration
 	if err := r.applyConfig(prevConfig); err != nil {
 		return fmt.Errorf("failed to rollback to previous configuration: %w", err)
@@ -305,7 +304,7 @@ func (r *ConfigReloader) watchFiles() {
 
 			if event.Op&fsnotify.Write == fsnotify.Write {
 				r.log("debug", fmt.Sprintf("Config file modified: %s", event.Name))
-				
+
 				// Load the updated configuration
 				newConfig, err := r.loadConfigFromFile(event.Name)
 				if err != nil {
@@ -340,7 +339,7 @@ func (r *ConfigReloader) handleSignals() {
 			return
 		case sig := <-r.signalChan:
 			r.log("info", fmt.Sprintf("Received reload signal: %s", sig))
-			
+
 			// For signal-triggered reload, reload from the original config file
 			if r.config.ConfigFile != "" {
 				newConfig, err := r.loadConfigFromFile(r.config.ConfigFile)
@@ -377,7 +376,7 @@ func (r *ConfigReloader) processReloads() {
 	}
 }
 
-func (r *ConfigReloader) handleReload(newConfig *config.Config) error {
+func (r *ConfigReloader) handleReload(newConfig *option.LogOption) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -413,7 +412,7 @@ func (r *ConfigReloader) handleReload(newConfig *config.Config) error {
 	return nil
 }
 
-func (r *ConfigReloader) validateConfig(cfg *config.Config) error {
+func (r *ConfigReloader) validateConfig(cfg *option.LogOption) error {
 	// Basic validation
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -429,11 +428,9 @@ func (r *ConfigReloader) validateConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (r *ConfigReloader) applyConfig(newConfig *config.Config) error {
+func (r *ConfigReloader) applyConfig(newConfig *option.LogOption) error {
 	// Update the factory with the new configuration
-	newOption := r.configToLogOption(newConfig)
-	
-	if err := r.factory.UpdateOption(newOption); err != nil {
+	if err := r.factory.UpdateOption(newConfig); err != nil {
 		return fmt.Errorf("failed to update factory configuration: %w", err)
 	}
 
@@ -454,14 +451,14 @@ func (r *ConfigReloader) backupCurrentConfig() {
 	}
 }
 
-func (r *ConfigReloader) loadConfigFromFile(filename string) (*config.Config, error) {
+func (r *ConfigReloader) loadConfigFromFile(filename string) (*option.LogOption, error) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	cfg := &config.Config{}
-	
+	cfg := &option.LogOption{}
+
 	// Determine file format by extension
 	ext := filepath.Ext(filename)
 	switch ext {
@@ -478,46 +475,6 @@ func (r *ConfigReloader) loadConfigFromFile(filename string) (*config.Config, er
 	}
 
 	return cfg, nil
-}
-
-func (r *ConfigReloader) configToLogOption(cfg *config.Config) *option.LogOption {
-	if cfg == nil {
-		return nil
-	}
-	
-	// Convert config.Config to option.LogOption
-	// This is a simplified conversion - in practice you might need more sophisticated mapping
-	opt := &option.LogOption{
-		Engine:            cfg.Engine,
-		Level:             cfg.Level,
-		Format:            cfg.Format,
-		OutputPaths:       cfg.OutputPaths,
-		Development:       cfg.Development,
-		DisableCaller:     cfg.DisableCaller,
-		DisableStacktrace: cfg.DisableStacktrace,
-	}
-
-	if cfg.OTLP != nil {
-		opt.OTLP = &option.OTLPOption{
-			Enabled:  cfg.OTLP.Enabled,
-			Endpoint: cfg.OTLP.Endpoint,
-			Protocol: cfg.OTLP.Protocol,
-			Timeout:  cfg.OTLP.Timeout,
-			Headers:  cfg.OTLP.Headers,
-		}
-	}
-
-	// Handle flattened OTLP endpoint
-	if cfg.OTLPEndpoint != "" {
-		if opt.OTLP == nil {
-			opt.OTLP = &option.OTLPOption{}
-		}
-		if opt.OTLP.Endpoint == "" {
-			opt.OTLP.Endpoint = cfg.OTLPEndpoint
-		}
-	}
-
-	return opt
 }
 
 func (r *ConfigReloader) log(level, message string) {

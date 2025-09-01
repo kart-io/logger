@@ -11,14 +11,13 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/kart-io/logger/config"
 	"github.com/kart-io/logger/factory"
 	"github.com/kart-io/logger/option"
 )
 
 func TestNewConfigReloader(t *testing.T) {
 	// Create test config
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -38,7 +37,7 @@ func TestNewConfigReloader(t *testing.T) {
 		t.Fatalf("Failed to create reloader with default config: %v", err)
 	}
 
-	if reloader.config.Triggers != (TriggerSignal|TriggerFileWatch) {
+	if reloader.config.Triggers != (TriggerSignal | TriggerFileWatch) {
 		t.Errorf("Expected default triggers to be signal and file watch")
 	}
 
@@ -58,7 +57,7 @@ func TestNewConfigReloader(t *testing.T) {
 }
 
 func TestConfigReloader_StartStop(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -74,7 +73,7 @@ func TestConfigReloader_StartStop(t *testing.T) {
 	reloadConfig := &ReloadConfig{
 		Triggers: TriggerSignal,
 	}
-	
+
 	reloader, err := NewConfigReloader(reloadConfig, cfg, factory)
 	if err != nil {
 		t.Fatalf("Failed to create reloader: %v", err)
@@ -110,7 +109,7 @@ func TestConfigReloader_StartStop(t *testing.T) {
 }
 
 func TestConfigReloader_GetCurrentConfig(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -146,7 +145,7 @@ func TestConfigReloader_GetCurrentConfig(t *testing.T) {
 }
 
 func TestConfigReloader_TriggerReload(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -165,10 +164,10 @@ func TestConfigReloader_TriggerReload(t *testing.T) {
 	}
 
 	// Test trigger reload when not running (should fail)
-	newCfg := &config.Config{
+	newCfg := &option.LogOption{
 		Engine: "zap",
 		Level:  "DEBUG",
-		Format: "text",
+		Format: "console",
 	}
 
 	if err := reloader.TriggerReload(newCfg); err == nil {
@@ -203,7 +202,7 @@ func TestConfigReloader_FileWatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "test-config.yaml")
 
-	initialCfg := &config.Config{
+	initialCfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -246,10 +245,10 @@ func TestConfigReloader_FileWatch(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Modify config file
-	updatedCfg := &config.Config{
+	updatedCfg := &option.LogOption{
 		Engine: "zap",
 		Level:  "DEBUG",
-		Format: "text",
+		Format: "console",
 	}
 
 	data, err = yaml.Marshal(updatedCfg)
@@ -279,7 +278,7 @@ func TestConfigReloader_SignalReload(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "test-config.json")
 
-	initialCfg := &config.Config{
+	initialCfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -323,10 +322,10 @@ func TestConfigReloader_SignalReload(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Update config file first
-	updatedCfg := &config.Config{
+	updatedCfg := &option.LogOption{
 		Engine: "zap",
 		Level:  "WARN",
-		Format: "text",
+		Format: "console",
 	}
 
 	data, err = json.Marshal(updatedCfg)
@@ -357,7 +356,7 @@ func TestConfigReloader_SignalReload(t *testing.T) {
 }
 
 func TestConfigReloader_BackupAndRollback(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -395,10 +394,10 @@ func TestConfigReloader_BackupAndRollback(t *testing.T) {
 	}
 
 	// Trigger several reloads to create backups
-	configs := []*config.Config{
-		{Engine: "zap", Level: "DEBUG", Format: "text"},
+	configs := []*option.LogOption{
+		{Engine: "zap", Level: "DEBUG", Format: "console"},
 		{Engine: "slog", Level: "WARN", Format: "json"},
-		{Engine: "zap", Level: "ERROR", Format: "text"},
+		{Engine: "zap", Level: "ERROR", Format: "console"},
 	}
 
 	for _, newCfg := range configs {
@@ -439,7 +438,7 @@ func TestConfigReloader_BackupAndRollback(t *testing.T) {
 }
 
 func TestConfigReloader_ValidationCallback(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -453,18 +452,18 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 	factory := factory.NewLoggerFactory(opt)
 
 	var callbackCalled bool
-	var callbackOldConfig, callbackNewConfig *config.Config
-	
+	var callbackOldConfig, callbackNewConfig *option.LogOption
+
 	reloadConfig := &ReloadConfig{
 		ValidateBeforeReload: true,
-		ValidationFunc: func(cfg *config.Config) error {
+		ValidationFunc: func(cfg *option.LogOption) error {
 			// Reject configs with ERROR level
 			if cfg.Level == "ERROR" {
 				return os.ErrInvalid
 			}
 			return nil
 		},
-		Callback: func(oldCfg, newCfg *config.Config) error {
+		Callback: func(oldCfg, newCfg *option.LogOption) error {
 			callbackCalled = true
 			callbackOldConfig = oldCfg
 			callbackNewConfig = newCfg
@@ -487,10 +486,10 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test valid config
-	validCfg := &config.Config{
+	validCfg := &option.LogOption{
 		Engine: "zap",
 		Level:  "DEBUG",
-		Format: "text",
+		Format: "console",
 	}
 
 	if err := reloader.TriggerReload(validCfg); err != nil {
@@ -511,10 +510,10 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 	callbackCalled = false
 
 	// Test invalid config (should be rejected by validation)
-	invalidCfg := &config.Config{
+	invalidCfg := &option.LogOption{
 		Engine: "zap",
 		Level:  "ERROR", // This should be rejected by validation
-		Format: "text",
+		Format: "console",
 	}
 
 	if err := reloader.TriggerReload(invalidCfg); err != nil {
@@ -536,7 +535,7 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 }
 
 func TestConfigReloader_ConcurrentAccess(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -587,7 +586,7 @@ func TestConfigReloader_ConcurrentAccess(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 			for j := 0; j < numOperations/5; j++ {
-				newCfg := &config.Config{
+				newCfg := &option.LogOption{
 					Engine: "slog",
 					Level:  "DEBUG",
 					Format: "json",
@@ -608,7 +607,7 @@ func TestConfigReloader_ConcurrentAccess(t *testing.T) {
 }
 
 func TestConfigReloader_LoadConfigFromFile(t *testing.T) {
-	cfg := &config.Config{
+	cfg := &option.LogOption{
 		Engine: "slog",
 		Level:  "INFO",
 		Format: "json",
@@ -633,7 +632,7 @@ func TestConfigReloader_LoadConfigFromFile(t *testing.T) {
 	yamlData := `
 engine: zap
 level: DEBUG
-format: text
+format: console
 `
 	if err := os.WriteFile(yamlFile, []byte(yamlData), 0644); err != nil {
 		t.Fatalf("Failed to write YAML file: %v", err)
@@ -644,7 +643,7 @@ format: text
 		t.Fatalf("Failed to load YAML config: %v", err)
 	}
 
-	if yamlCfg.Engine != "zap" || yamlCfg.Level != "DEBUG" || yamlCfg.Format != "text" {
+	if yamlCfg.Engine != "zap" || yamlCfg.Level != "DEBUG" || yamlCfg.Format != "console" {
 		t.Error("YAML config not loaded correctly")
 	}
 

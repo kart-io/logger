@@ -104,12 +104,12 @@ func (p *RetryPolicy) IsRetryable(errType ErrorType) bool {
 
 // ErrorHandler manages error handling and degradation strategies
 type ErrorHandler struct {
-	retryPolicy   *RetryPolicy
+	retryPolicy    *RetryPolicy
 	fallbackLogger core.Logger
 	errorCallback  func(*LoggerError)
-	mu            sync.RWMutex
-	errorCounts   map[string]int
-	lastErrors    map[string]*LoggerError
+	mu             sync.RWMutex
+	errorCounts    map[string]int
+	lastErrors     map[string]*LoggerError
 }
 
 // NewErrorHandler creates a new error handler with the given retry policy
@@ -119,10 +119,10 @@ func NewErrorHandler(retryPolicy *RetryPolicy) *ErrorHandler {
 	}
 
 	return &ErrorHandler{
-		retryPolicy:   retryPolicy,
+		retryPolicy:    retryPolicy,
 		fallbackLogger: NewNoOpLogger(),
-		errorCounts:   make(map[string]int),
-		lastErrors:    make(map[string]*LoggerError),
+		errorCounts:    make(map[string]int),
+		lastErrors:     make(map[string]*LoggerError),
 	}
 }
 
@@ -172,7 +172,7 @@ func (h *ErrorHandler) HandleError(err *LoggerError) bool {
 func (h *ErrorHandler) ExecuteWithRetry(ctx context.Context, component string, operation func() error) error {
 	var lastErr error
 	delay := h.retryPolicy.RetryDelay
-	
+
 	// Reset error count for this component before starting
 	h.mu.Lock()
 	componentKey := fmt.Sprintf("%s:%s", SystemError, component)
@@ -216,7 +216,7 @@ func (h *ErrorHandler) ExecuteWithRetry(ctx context.Context, component string, o
 		// Determine error type
 		var loggerErr *LoggerError
 		var errType ErrorType = SystemError
-		
+
 		if le, ok := err.(*LoggerError); ok {
 			loggerErr = le
 			errType = le.Type
@@ -228,12 +228,12 @@ func (h *ErrorHandler) ExecuteWithRetry(ctx context.Context, component string, o
 		if !h.HandleError(loggerErr) {
 			break
 		}
-		
+
 		// Check if we've hit the retry limit
 		h.mu.RLock()
 		currentCount := h.errorCounts[fmt.Sprintf("%s:%s", errType, component)]
 		h.mu.RUnlock()
-		
+
 		if currentCount > h.retryPolicy.MaxRetries {
 			break
 		}
@@ -246,7 +246,7 @@ func (h *ErrorHandler) ExecuteWithRetry(ctx context.Context, component string, o
 func (h *ErrorHandler) GetErrorStats() map[string]int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	stats := make(map[string]int)
 	for k, v := range h.errorCounts {
 		stats[k] = v
@@ -258,7 +258,7 @@ func (h *ErrorHandler) GetErrorStats() map[string]int {
 func (h *ErrorHandler) GetLastErrors() map[string]*LoggerError {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	
+
 	errors := make(map[string]*LoggerError)
 	for k, v := range h.lastErrors {
 		errors[k] = v
@@ -270,7 +270,7 @@ func (h *ErrorHandler) GetLastErrors() map[string]*LoggerError {
 func (h *ErrorHandler) Reset() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	
+
 	h.errorCounts = make(map[string]int)
 	h.lastErrors = make(map[string]*LoggerError)
 }

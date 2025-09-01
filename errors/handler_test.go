@@ -164,7 +164,7 @@ func TestErrorHandler_ExecuteWithRetry(t *testing.T) {
 
 	t.Run("context cancellation", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		attempts := 0
 		err := handler.ExecuteWithRetry(ctx, "test-component-3", func() error {
 			attempts++
@@ -180,7 +180,7 @@ func TestErrorHandler_ExecuteWithRetry(t *testing.T) {
 		if err == nil {
 			t.Error("Expected an error")
 		}
-		
+
 		// Should have attempted at least once
 		if attempts < 1 {
 			t.Errorf("Expected at least 1 attempt, got %d", attempts)
@@ -250,7 +250,7 @@ func TestErrorHandler_Reset(t *testing.T) {
 
 	// Reset and verify
 	handler.Reset()
-	
+
 	stats = handler.GetErrorStats()
 	if len(stats) != 0 {
 		t.Error("Expected error stats to be empty after reset")
@@ -307,22 +307,22 @@ func TestNoOpLogger(t *testing.T) {
 // testLogger is a simple logger for testing
 type testLogger struct{}
 
-func (l *testLogger) Debug(args ...interface{})                              {}
-func (l *testLogger) Info(args ...interface{})                               {}
-func (l *testLogger) Warn(args ...interface{})                               {}
-func (l *testLogger) Error(args ...interface{})                              {}
-func (l *testLogger) Fatal(args ...interface{})                              {}
-func (l *testLogger) Debugf(template string, args ...interface{})            {}
-func (l *testLogger) Infof(template string, args ...interface{})             {}
-func (l *testLogger) Warnf(template string, args ...interface{})             {}
-func (l *testLogger) Errorf(template string, args ...interface{})            {}
-func (l *testLogger) Fatalf(template string, args ...interface{})            {}
-func (l *testLogger) Debugw(msg string, keysAndValues ...interface{})        {}
-func (l *testLogger) Infow(msg string, keysAndValues ...interface{})         {}
-func (l *testLogger) Warnw(msg string, keysAndValues ...interface{})         {}
-func (l *testLogger) Errorw(msg string, keysAndValues ...interface{})        {}
-func (l *testLogger) Fatalw(msg string, keysAndValues ...interface{})        {}
-func (l *testLogger) With(keysAndValues ...interface{}) core.Logger          { return l }
+func (l *testLogger) Debug(args ...interface{})                                             {}
+func (l *testLogger) Info(args ...interface{})                                              {}
+func (l *testLogger) Warn(args ...interface{})                                              {}
+func (l *testLogger) Error(args ...interface{})                                             {}
+func (l *testLogger) Fatal(args ...interface{})                                             {}
+func (l *testLogger) Debugf(template string, args ...interface{})                           {}
+func (l *testLogger) Infof(template string, args ...interface{})                            {}
+func (l *testLogger) Warnf(template string, args ...interface{})                            {}
+func (l *testLogger) Errorf(template string, args ...interface{})                           {}
+func (l *testLogger) Fatalf(template string, args ...interface{})                           {}
+func (l *testLogger) Debugw(msg string, keysAndValues ...interface{})                       {}
+func (l *testLogger) Infow(msg string, keysAndValues ...interface{})                        {}
+func (l *testLogger) Warnw(msg string, keysAndValues ...interface{})                        {}
+func (l *testLogger) Errorw(msg string, keysAndValues ...interface{})                       {}
+func (l *testLogger) Fatalw(msg string, keysAndValues ...interface{})                       {}
+func (l *testLogger) With(keysAndValues ...interface{}) core.Logger                         { return l }
 func (l *testLogger) WithCtx(ctx context.Context, keysAndValues ...interface{}) core.Logger { return l }
-func (l *testLogger) WithCallerSkip(skip int) core.Logger                    { return l }
-func (l *testLogger) SetLevel(level core.Level)                              {}
+func (l *testLogger) WithCallerSkip(skip int) core.Logger                                   { return l }
+func (l *testLogger) SetLevel(level core.Level)                                             {}

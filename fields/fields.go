@@ -60,12 +60,12 @@ func (fm *FieldMapper) MapCoreFields() map[string]string {
 // MapTracingFields returns standardized tracing field mappings.
 func (fm *FieldMapper) MapTracingFields() map[string]string {
 	return map[string]string{
-		"trace.id":  TraceIDField,
-		"trace_id":  TraceIDField,
-		"traceId":   TraceIDField,
-		"span.id":   SpanIDField,
-		"span_id":   SpanIDField,
-		"spanId":    SpanIDField,
+		"trace.id": TraceIDField,
+		"trace_id": TraceIDField,
+		"traceId":  TraceIDField,
+		"span.id":  SpanIDField,
+		"span_id":  SpanIDField,
+		"spanId":   SpanIDField,
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/proto/otlp/collector/logs/v1"
+	v1 "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resourcev1 "go.opentelemetry.io/proto/otlp/resource/v1"
@@ -34,11 +34,11 @@ type OTLPClient struct {
 	timeout  time.Duration
 	headers  map[string]string
 	insecure bool
-	
+
 	// gRPC client
 	grpcConn   *grpc.ClientConn
 	grpcClient v1.LogsServiceClient
-	
+
 	// HTTP client
 	httpClient *http.Client
 }
@@ -70,13 +70,13 @@ func NewLoggerProvider(ctx context.Context, opt *option.OTLPOption) (*LoggerProv
 				},
 			},
 			{
-				Key: "job",  // VictoriaLogs stream field
+				Key: "job", // VictoriaLogs stream field
 				Value: &commonv1.AnyValue{
 					Value: &commonv1.AnyValue_StringValue{StringValue: "kart-io-logger"},
 				},
 			},
 			{
-				Key: "instance",  // VictoriaLogs stream field
+				Key: "instance", // VictoriaLogs stream field
 				Value: &commonv1.AnyValue{
 					Value: &commonv1.AnyValue_StringValue{StringValue: "localhost"},
 				},
@@ -121,7 +121,7 @@ func NewOTLPClient(opt *option.OTLPOption) (*OTLPClient, error) {
 // SendLogRecord sends a log record via OTLP.
 func (p *LoggerProvider) SendLogRecord(level core.Level, message string, attributes map[string]interface{}) error {
 	logRecord := p.createLogRecord(level, message, attributes)
-	
+
 	req := &v1.ExportLogsServiceRequest{
 		ResourceLogs: []*logsv1.ResourceLogs{
 			{
@@ -139,20 +139,6 @@ func (p *LoggerProvider) SendLogRecord(level core.Level, message string, attribu
 		},
 	}
 
-	// Debug: Print the request structure
-	fmt.Printf("🔍 OTLP Request Debug:\n")
-	fmt.Printf("  Resource attributes: %d\n", len(p.resource.Attributes))
-	for i, attr := range p.resource.Attributes {
-		fmt.Printf("    [%d] %s = %v\n", i, attr.Key, attr.Value)
-	}
-	fmt.Printf("  Log record:\n")
-	fmt.Printf("    Timestamp: %d\n", logRecord.TimeUnixNano)
-	fmt.Printf("    Severity: %s (%d)\n", logRecord.SeverityText, logRecord.SeverityNumber)
-	fmt.Printf("    Body: %s\n", logRecord.Body.GetStringValue())
-	fmt.Printf("    Attributes: %d\n", len(logRecord.Attributes))
-	for i, attr := range logRecord.Attributes {
-		fmt.Printf("      [%d] %s = %v\n", i, attr.Key, attr.Value)
-	}
 
 	return p.client.Export(context.Background(), req)
 }
@@ -160,13 +146,13 @@ func (p *LoggerProvider) SendLogRecord(level core.Level, message string, attribu
 // createLogRecord creates an OTLP log record.
 func (p *LoggerProvider) createLogRecord(level core.Level, message string, attributes map[string]interface{}) *logsv1.LogRecord {
 	now := time.Now()
-	
+
 	// Convert attributes to OTLP format with VictoriaLogs-compatible field names
 	otlpAttributes := make([]*commonv1.KeyValue, 0, len(attributes)+3)
-	
+
 	// Add essential VictoriaLogs fields
 	otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
-		Key: "level",  // VictoriaLogs standard field
+		Key: "level", // VictoriaLogs standard field
 		Value: &commonv1.AnyValue{
 			Value: &commonv1.AnyValue_StringValue{StringValue: strings.ToLower(level.String())},
 		},
@@ -191,7 +177,7 @@ func (p *LoggerProvider) createLogRecord(level core.Level, message string, attri
 	// Convert user attributes with proper type handling
 	for key, value := range attributes {
 		otlpAttr := &commonv1.KeyValue{Key: key}
-		
+
 		switch v := value.(type) {
 		case string:
 			otlpAttr.Value = &commonv1.AnyValue{
@@ -237,7 +223,7 @@ func (p *LoggerProvider) createLogRecord(level core.Level, message string, attri
 				}
 			}
 		}
-		
+
 		otlpAttributes = append(otlpAttributes, otlpAttr)
 	}
 
@@ -266,16 +252,11 @@ func (c *OTLPClient) exportGRPC(ctx context.Context, req *v1.ExportLogsServiceRe
 	if c.grpcClient == nil {
 		return fmt.Errorf("gRPC client not initialized")
 	}
-	
+
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	
+
 	_, err := c.grpcClient.Export(ctx, req)
-	if err != nil {
-		fmt.Printf("❌ gRPC OTLP export failed: %v\n", err)
-	} else {
-		fmt.Printf("✅ gRPC OTLP export successful: %s\n", c.endpoint)
-	}
 	return err
 }
 
@@ -296,9 +277,8 @@ func (c *OTLPClient) exportHTTP(ctx context.Context, req *v1.ExportLogsServiceRe
 		// For standard OTLP collectors/agents, use /v1/logs path
 		url = fmt.Sprintf("http://%s/v1/logs", c.endpoint)
 	}
-	
-	fmt.Printf("🔗 HTTP OTLP URL: %s\n", url)
-	
+
+
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
@@ -320,7 +300,6 @@ func (c *OTLPClient) exportHTTP(ctx context.Context, req *v1.ExportLogsServiceRe
 		return fmt.Errorf("HTTP request failed with status: %d", resp.StatusCode)
 	}
 
-	fmt.Printf("✅ HTTP OTLP export successful: %s (status: %d)\n", url, resp.StatusCode)
 	return nil
 }
 

@@ -21,17 +21,17 @@ type mockCall struct {
 	fields []interface{}
 }
 
-func (m *mockLogger) Debug(args ...interface{})                        {}
-func (m *mockLogger) Info(args ...interface{})                         {}
-func (m *mockLogger) Warn(args ...interface{})                         {}
-func (m *mockLogger) Error(args ...interface{})                        {}
-func (m *mockLogger) Fatal(args ...interface{})                        {}
-func (m *mockLogger) Debugf(template string, args ...interface{})      {}
-func (m *mockLogger) Infof(template string, args ...interface{})       {}
-func (m *mockLogger) Warnf(template string, args ...interface{})       {}
-func (m *mockLogger) Errorf(template string, args ...interface{})      {}
-func (m *mockLogger) Fatalf(template string, args ...interface{})      {}
-func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{})  {}
+func (m *mockLogger) Debug(args ...interface{})                       {}
+func (m *mockLogger) Info(args ...interface{})                        {}
+func (m *mockLogger) Warn(args ...interface{})                        {}
+func (m *mockLogger) Error(args ...interface{})                       {}
+func (m *mockLogger) Fatal(args ...interface{})                       {}
+func (m *mockLogger) Debugf(template string, args ...interface{})     {}
+func (m *mockLogger) Infof(template string, args ...interface{})      {}
+func (m *mockLogger) Warnf(template string, args ...interface{})      {}
+func (m *mockLogger) Errorf(template string, args ...interface{})     {}
+func (m *mockLogger) Fatalf(template string, args ...interface{})     {}
+func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {}
 func (m *mockLogger) Warnw(msg string, keysAndValues ...interface{}) {
 	m.warnCalls = append(m.warnCalls, mockCall{msg: msg, fields: keysAndValues})
 }
@@ -64,7 +64,7 @@ func TestNewGormAdapter(t *testing.T) {
 	if adapter.Name() != "GORM" {
 		t.Errorf("Expected name 'GORM', got '%s'", adapter.Name())
 	}
-	
+
 	if adapter.Version() != "v1.x" {
 		t.Errorf("Expected version 'v1.x', got '%s'", adapter.Version())
 	}
@@ -85,7 +85,7 @@ func TestNewGormAdapterWithConfig(t *testing.T) {
 		SlowThreshold:             500 * time.Millisecond,
 		IgnoreRecordNotFoundError: false,
 	}
-	
+
 	adapter := NewGormAdapterWithConfig(mockLog, config)
 
 	if adapter.logLevel != Warn {
@@ -106,7 +106,7 @@ func TestGormAdapter_LogMode(t *testing.T) {
 	adapter := NewGormAdapter(mockLog)
 
 	newAdapter := adapter.LogMode(Error)
-	
+
 	// Should return a new instance
 	if newAdapter == adapter {
 		t.Error("Expected LogMode to return a new instance")
@@ -125,7 +125,7 @@ func TestGormAdapter_LogMode(t *testing.T) {
 func TestGormAdapter_Info(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	adapter.Info(ctx, "test info message %s", "param1")
 
@@ -136,7 +136,7 @@ func TestGormAdapter_Info(t *testing.T) {
 func TestGormAdapter_Warn(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	adapter.Warn(ctx, "test warn message %s", "param1")
 
@@ -146,7 +146,7 @@ func TestGormAdapter_Warn(t *testing.T) {
 func TestGormAdapter_Error(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	adapter.Error(ctx, "test error message %s", "param1")
 
@@ -156,10 +156,10 @@ func TestGormAdapter_Error(t *testing.T) {
 func TestGormAdapter_Trace_NormalQuery(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	begin := time.Now().Add(-50 * time.Millisecond) // Simulate 50ms query
-	
+
 	adapter.Trace(ctx, begin, func() (string, int64) {
 		return "SELECT * FROM users", 10
 	}, nil)
@@ -178,10 +178,10 @@ func TestGormAdapter_Trace_SlowQuery(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
 	adapter.SetSlowThreshold(10 * time.Millisecond) // Very low threshold for testing
-	
+
 	ctx := context.Background()
 	begin := time.Now().Add(-50 * time.Millisecond) // Simulate 50ms query (slow)
-	
+
 	adapter.Trace(ctx, begin, func() (string, int64) {
 		return "SELECT * FROM users", 10
 	}, nil)
@@ -199,11 +199,11 @@ func TestGormAdapter_Trace_SlowQuery(t *testing.T) {
 func TestGormAdapter_Trace_ErrorQuery(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	begin := time.Now().Add(-50 * time.Millisecond)
 	err := errors.New("database connection failed")
-	
+
 	adapter.Trace(ctx, begin, func() (string, int64) {
 		return "SELECT * FROM users", 0
 	}, err)
@@ -221,11 +221,11 @@ func TestGormAdapter_Trace_ErrorQuery(t *testing.T) {
 func TestGormAdapter_Trace_RecordNotFoundError(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	ctx := context.Background()
 	begin := time.Now().Add(-50 * time.Millisecond)
 	err := errors.New("record not found")
-	
+
 	adapter.Trace(ctx, begin, func() (string, int64) {
 		return "SELECT * FROM users WHERE id = 1", 0
 	}, err)
@@ -244,7 +244,7 @@ func TestGormAdapter_Trace_RecordNotFoundError(t *testing.T) {
 func TestGormAdapter_LogQuery(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	adapter.LogQuery("SELECT * FROM users", 1000000, "param1", "value1")
 
 	if len(mockLog.infoCalls) != 1 {
@@ -272,7 +272,7 @@ func TestGormAdapter_LogQuery(t *testing.T) {
 func TestGormAdapter_LogError(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	err := errors.New("connection failed")
 	adapter.LogError(err, "SELECT * FROM users", "param1", "value1")
 
@@ -288,7 +288,7 @@ func TestGormAdapter_LogError(t *testing.T) {
 func TestGormAdapter_LogSlowQuery(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	adapter.LogSlowQuery("SELECT * FROM users", 1000000000, 200000000) // 1s vs 200ms
 
 	if len(mockLog.warnCalls) != 1 {
@@ -318,18 +318,18 @@ func TestGormAdapter_LogSlowQuery(t *testing.T) {
 func TestGormAdapter_ThresholdAndIgnoreSettings(t *testing.T) {
 	mockLog := &mockLogger{}
 	adapter := NewGormAdapter(mockLog)
-	
+
 	// Test SetSlowThreshold and GetSlowThreshold
 	newThreshold := 500 * time.Millisecond
 	adapter.SetSlowThreshold(newThreshold)
-	
+
 	if adapter.GetSlowThreshold() != newThreshold {
 		t.Errorf("Expected slow threshold %v, got %v", newThreshold, adapter.GetSlowThreshold())
 	}
 
 	// Test SetIgnoreRecordNotFoundError and GetIgnoreRecordNotFoundError
 	adapter.SetIgnoreRecordNotFoundError(false)
-	
+
 	if adapter.GetIgnoreRecordNotFoundError() != false {
 		t.Error("Expected ignoreRecordNotFoundError to be false")
 	}
@@ -337,7 +337,7 @@ func TestGormAdapter_ThresholdAndIgnoreSettings(t *testing.T) {
 
 func TestDefaultConfig(t *testing.T) {
 	config := DefaultConfig()
-	
+
 	if config.LogLevel != Info {
 		t.Errorf("Expected log level Info, got %v", config.LogLevel)
 	}

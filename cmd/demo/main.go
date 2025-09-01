@@ -27,7 +27,7 @@ func main() {
 
 	slogLogger.Infow("User logged in", "user_id", "12345", "action", "login", "ip", "192.168.1.100")
 
-	// Test 2: Zap Engine 
+	// Test 2: Zap Engine
 	fmt.Println("\n2. Using Zap Engine:")
 	zapOpt := &option.LogOption{
 		Engine:      "zap",

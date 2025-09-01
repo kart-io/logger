@@ -29,7 +29,7 @@ func TestFieldConstants(t *testing.T) {
 
 	fieldsType := reflect.TypeOf((*FieldMapper)(nil)).Elem()
 	pkg := fieldsType.PkgPath()
-	
+
 	for name, expected := range expectedFields {
 		// This is a simplified test - in real implementation, we'd use reflection
 		// to check the actual constant values, but for this test we'll verify
@@ -91,12 +91,12 @@ func TestFieldMapper_MapTracingFields(t *testing.T) {
 	tracingFields := mapper.MapTracingFields()
 
 	expectedMappings := map[string]string{
-		"trace.id":  TraceIDField,
-		"trace_id":  TraceIDField,
-		"traceId":   TraceIDField,
-		"span.id":   SpanIDField,
-		"span_id":   SpanIDField,
-		"spanId":    SpanIDField,
+		"trace.id": TraceIDField,
+		"trace_id": TraceIDField,
+		"traceId":  TraceIDField,
+		"span.id":  SpanIDField,
+		"span_id":  SpanIDField,
+		"spanId":   SpanIDField,
 	}
 
 	if !reflect.DeepEqual(tracingFields, expectedMappings) {
@@ -138,11 +138,11 @@ func TestFieldMapper_ValidateFieldName(t *testing.T) {
 		{SpanIDField, true},
 		{ErrorField, true},
 		{StacktraceField, true},
-		
+
 		// Custom fields (should be allowed)
 		{"custom_field", true},
 		{"my_custom_data", true},
-		
+
 		// Any field name should be valid (the function returns true for all)
 		{"CamelCase", true},
 		{"some-field", true},
@@ -160,7 +160,7 @@ func TestFieldMapper_ValidateFieldName(t *testing.T) {
 func TestFieldConsistency(t *testing.T) {
 	// Test that our field standardization ensures consistency
 	// between different engine outputs
-	
+
 	mapper := NewFieldMapper()
 	coreMapping := mapper.MapCoreFields()
 	tracingMapping := mapper.MapTracingFields()

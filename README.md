@@ -36,9 +36,9 @@ import "github.com/kart-io/logger"
 func main() {
     // 使用默认配置 (Slog 引擎, INFO 级别, JSON 格式)
     logger.Info("Hello, World!")
-    
+
     // 结构化日志记录
-    logger.Infow("用户登录成功", 
+    logger.Infow("用户登录成功",
         "user_id", "12345",
         "ip", "192.168.1.100",
         "duration", "200ms")
@@ -68,12 +68,12 @@ func main() {
         // 自动启用 OTLP (智能配置)
         OTLPEndpoint: "http://localhost:4317",
     }
-    
+
     coreLogger, err := logger.New(opt)
     if err != nil {
         panic(err)
     }
-    
+
     // 三种调用风格
     coreLogger.Info("简单消息")
     coreLogger.Infof("格式化消息: %s", "hello")
@@ -84,6 +84,7 @@ func main() {
 ## 📊 三种调用风格
 
 ### 1. 简单参数风格
+
 ```go
 logger.Debug("调试消息", "额外信息")
 logger.Info("信息消息")
@@ -92,6 +93,7 @@ logger.Error("错误消息")
 ```
 
 ### 2. Printf 格式化风格
+
 ```go
 logger.Debugf("用户 %s 执行 %s 操作", userName, action)
 logger.Infof("处理了 %d 个请求，耗时 %v", count, duration)
@@ -99,6 +101,7 @@ logger.Errorf("连接 %s:%d 失败: %v", host, port, err)
 ```
 
 ### 3. 结构化风格 (推荐)
+
 ```go
 logger.Debugw("API 请求开始",
     "method", "POST",
@@ -106,7 +109,7 @@ logger.Debugw("API 请求开始",
     "user_id", userID)
 
 logger.Infow("数据库查询完成",
-    "table", "users", 
+    "table", "users",
     "duration", duration.Milliseconds(),
     "rows", count)
 
@@ -118,6 +121,8 @@ logger.Errorw("支付处理失败",
 
 ## 🏗️ 项目架构
 
+### 包结构图
+
 ```
 github.com/kart-io/logger/
 ├── core/           # 核心接口定义 (Logger, Level)
@@ -125,7 +130,6 @@ github.com/kart-io/logger/
 │   ├── slog/       # Go 标准库 slog 引擎
 │   └── zap/        # Uber Zap 高性能引擎
 ├── factory/        # 工厂模式，动态创建日志器
-├── config/         # 智能配置管理
 ├── option/         # 配置选项和验证
 ├── fields/         # 字段标准化系统
 ├── otlp/           # OpenTelemetry 集成
@@ -133,12 +137,236 @@ github.com/kart-io/logger/
 ├── integrations/   # 框架集成适配器
 │   ├── gorm/       # GORM ORM 集成
 │   └── kratos/     # Kratos 微服务框架集成
+├── errors/         # 错误处理和恢复
 └── example/        # 12+ 完整使用示例
+```
+
+### 系统设计图
+
+```mermaid
+graph TB
+    %% 用户层
+    subgraph "用户接口层"
+        APP[应用程序]
+        CLI[命令行工具]
+        WEB[Web框架]
+    end
+
+    %% 核心层
+    subgraph "核心接口层"
+        CORE[core.Logger 统一接口]
+        LEVEL[core.Level 日志级别]
+    end
+
+    %% 配置层
+    subgraph "配置管理层"
+        OPT[option.LogOption 配置结构]
+        VALID[配置验证和智能默认值]
+        RELOAD[reload.ConfigReloader 动态重载]
+    end
+
+    %% 工厂层
+    subgraph "工厂层"
+        FACTORY[factory.LoggerFactory]
+        CREATE[动态引擎创建]
+    end
+
+    %% 引擎层
+    subgraph "双引擎实现层"
+        SLOG[engines/slog 标准库引擎]
+        ZAP[engines/zap 高性能引擎]
+    end
+
+    %% 标准化层
+    subgraph "字段标准化层"
+        FIELDS[fields.StandardEncoder]
+        UNIFIED[统一字段格式]
+    end
+
+    %% 集成层
+    subgraph "框架集成层"
+        GORM[integrations/gorm]
+        KRATOS[integrations/kratos]
+        MIDDLEWARE[Web中间件]
+    end
+
+    %% 输出层
+    subgraph "输出处理层"
+        CONSOLE[控制台输出]
+        FILE[文件输出]
+        OTLP[OTLP导出器]
+    end
+
+    %% 可观测性后端
+    subgraph "可观测性后端"
+        JAEGER[Jaeger]
+        VICTORIA[VictoriaLogs]
+        OTEL[OpenTelemetry Collector]
+    end
+
+    %% 连接关系
+    APP --> CORE
+    CLI --> OPT
+    WEB --> MIDDLEWARE
+
+    CORE --> FACTORY
+    OPT --> VALID
+    VALID --> FACTORY
+    RELOAD --> FACTORY
+
+    FACTORY --> CREATE
+    CREATE --> SLOG
+    CREATE --> ZAP
+
+    SLOG --> FIELDS
+    ZAP --> FIELDS
+    FIELDS --> UNIFIED
+
+    UNIFIED --> CONSOLE
+    UNIFIED --> FILE
+    UNIFIED --> OTLP
+
+    GORM --> CORE
+    KRATOS --> CORE
+    MIDDLEWARE --> CORE
+
+    OTLP --> JAEGER
+    OTLP --> VICTORIA
+    OTLP --> OTEL
+
+    %% 样式
+    classDef userLayer fill:#e1f5fe
+    classDef coreLayer fill:#f3e5f5
+    classDef configLayer fill:#e8f5e8
+    classDef factoryLayer fill:#fff3e0
+    classDef engineLayer fill:#fce4ec
+    classDef integrationLayer fill:#e0f2f1
+    classDef outputLayer fill:#f1f8e9
+    classDef backendLayer fill:#e3f2fd
+
+    class APP,CLI,WEB userLayer
+    class CORE,LEVEL coreLayer
+    class OPT,VALID,RELOAD configLayer
+    class FACTORY,CREATE factoryLayer
+    class SLOG,ZAP,FIELDS,UNIFIED engineLayer
+    class GORM,KRATOS,MIDDLEWARE integrationLayer
+    class CONSOLE,FILE,OTLP outputLayer
+    class JAEGER,VICTORIA,OTEL backendLayer
+```
+
+### 配置优先级流程图
+
+```mermaid
+graph TD
+    START([配置加载开始])
+    
+    %% 配置源
+    ENV[环境变量]
+    API[HTTP API]
+    CENTER[配置中心]
+    FILE[配置文件]
+    DEFAULT[系统默认值]
+    
+    %% 处理逻辑
+    MERGE[配置合并处理器]
+    CONFLICT[冲突解决算法]
+    OTLP_AUTO[OTLP智能检测]
+    VALIDATE[配置验证]
+    
+    %% 结果
+    FINAL[最终配置]
+    LOGGER[日志器实例]
+    
+    START --> ENV
+    START --> API
+    START --> CENTER
+    START --> FILE
+    START --> DEFAULT
+    
+    ENV --> MERGE
+    API --> MERGE
+    CENTER --> MERGE
+    FILE --> MERGE
+    DEFAULT --> MERGE
+    
+    MERGE --> CONFLICT
+    CONFLICT --> OTLP_AUTO
+    OTLP_AUTO --> VALIDATE
+    VALIDATE --> FINAL
+    FINAL --> LOGGER
+    
+    %% 优先级标注
+    ENV -.->|优先级: 1| MERGE
+    API -.->|优先级: 2| MERGE
+    CENTER -.->|优先级: 3| MERGE
+    FILE -.->|优先级: 4| MERGE
+    DEFAULT -.->|优先级: 5| MERGE
+    
+    %% 样式
+    classDef highPriority fill:#ffcdd2
+    classDef mediumPriority fill:#fff9c4
+    classDef lowPriority fill:#e8f5e8
+    classDef processNode fill:#e1f5fe
+    classDef resultNode fill:#f3e5f5
+    
+    class ENV highPriority
+    class API,CENTER mediumPriority
+    class FILE,DEFAULT lowPriority
+    class MERGE,CONFLICT,OTLP_AUTO,VALIDATE processNode
+    class FINAL,LOGGER resultNode
 ```
 
 ## 🎯 核心概念
 
-### 双引擎架构
+### 双引擎架构设计
+
+```mermaid
+graph LR
+    subgraph "用户代码"
+        USER[logger.Info/Infof/Infow]
+    end
+    
+    subgraph "统一接口层"
+        INTERFACE[core.Logger Interface]
+    end
+    
+    subgraph "引擎选择"
+        FACTORY[factory.LoggerFactory]
+    end
+    
+    subgraph "双引擎实现"
+        SLOG_ENGINE[engines/slog]
+        ZAP_ENGINE[engines/zap]
+    end
+    
+    subgraph "字段标准化"
+        ENCODER[fields.StandardEncoder]
+    end
+    
+    subgraph "统一输出"
+        OUTPUT[相同的JSON/Console格式]
+    end
+    
+    USER --> INTERFACE
+    INTERFACE --> FACTORY
+    FACTORY --> SLOG_ENGINE
+    FACTORY --> ZAP_ENGINE
+    SLOG_ENGINE --> ENCODER
+    ZAP_ENGINE --> ENCODER
+    ENCODER --> OUTPUT
+    
+    classDef userCode fill:#e1f5fe
+    classDef interface fill:#f3e5f5
+    classDef factory fill:#fff3e0
+    classDef engine fill:#fce4ec
+    classDef output fill:#e8f5e8
+    
+    class USER userCode
+    class INTERFACE interface
+    class FACTORY factory
+    class SLOG_ENGINE,ZAP_ENGINE engine
+    class ENCODER,OUTPUT output
+```
 
 | 引擎 | 适用场景 | 性能 | 特点 |
 |------|----------|------|------|
@@ -156,7 +384,7 @@ github.com/kart-io/logger/
 {
   "timestamp": "2023-12-01T10:30:00.123456789Z",
   "level": "info",
-  "message": "用户登录成功", 
+  "message": "用户登录成功",
   "caller": "main.go:42",
   "user_id": "12345",
   "trace_id": "abc123def456"
@@ -174,7 +402,7 @@ otlp-endpoint: "http://localhost:4317"
 # 高级配置
 otlp:
   endpoint: "https://jaeger.company.com:4317"
-  protocol: "grpc"  
+  protocol: "grpc"
   timeout: "15s"
   headers:
     Authorization: "Bearer token123"
@@ -199,7 +427,7 @@ reloader.Start()
 
 // 现在支持:
 // 1. 修改 logger.yaml 文件自动重载
-// 2. kill -USR1 <pid> 信号重载  
+// 2. kill -USR1 <pid> 信号重载
 // 3. HTTP API 调用重载
 ```
 
@@ -213,7 +441,7 @@ router := gin.Default()
 logger, _ := logger.NewWithDefaults()
 router.Use(integrations.GinMiddleware(logger))
 
-// Echo 集成  
+// Echo 集成
 e := echo.New()
 e.Use(integrations.EchoMiddleware(logger))
 
@@ -228,13 +456,13 @@ db, _ := gorm.Open(sqlite.Open("test.db"), &gorm.Config{
 ```go
 // 创建带上下文的日志器
 ctx := context.WithValue(context.Background(), "request_id", "req-12345")
-contextLogger := logger.WithCtx(ctx, 
+contextLogger := logger.WithCtx(ctx,
     "service", "user-api",
     "version", "v1.2.3")
 
 // 分布式追踪
 contextLogger.Infow("处理用户请求",
-    "trace_id", "abc123def456", 
+    "trace_id", "abc123def456",
     "span_id", "span789xyz",
     "user_id", userID,
     "operation", "get_profile")
@@ -243,7 +471,7 @@ contextLogger.Infow("处理用户请求",
 userLogger := logger.With(
     "user_id", userID,
     "session_id", sessionID)
-    
+
 // 所有后续日志都包含这些字段
 userLogger.Info("用户进入页面")
 userLogger.Warn("权限检查失败")
@@ -254,7 +482,7 @@ userLogger.Warn("权限检查失败")
 项目包含 12+ 个完整的使用示例，每个示例都是独立的 Go 模块：
 
 - [📋 **comprehensive**](example/comprehensive/) - 完整功能演示
-- [⚡ **performance**](example/performance/) - 性能对比测试  
+- [⚡ **performance**](example/performance/) - 性能对比测试
 - [🔧 **configuration**](example/configuration/) - 配置管理示例
 - [📡 **otlp**](example/otlp/) - OpenTelemetry 集成
 - [🔄 **reload**](example/reload/) - 动态配置重载
@@ -268,7 +496,7 @@ userLogger.Warn("权限检查失败")
 # 综合功能演示
 cd example/comprehensive && go run main.go
 
-# Web 框架集成 
+# Web 框架集成
 cd example/echo && go run main.go    # http://localhost:8081
 cd example/gin && go run main.go     # http://localhost:8080
 
@@ -284,7 +512,7 @@ cd example/performance && go run main.go
 ### 基本配置
 
 ```yaml
-engine: "zap"                    # 引擎选择: "zap" | "slog"  
+engine: "zap"                    # 引擎选择: "zap" | "slog"
 level: "info"                    # 日志级别: "debug" | "info" | "warn" | "error" | "fatal"
 format: "json"                   # 输出格式: "json" | "console"
 output-paths: ["stdout"]         # 输出路径: 控制台、文件路径
@@ -301,7 +529,7 @@ otlp-endpoint: "http://localhost:4317"
 otlp:
   enabled: true                  # 明确启用/禁用
   endpoint: "http://jaeger:4317" # OTLP 收集器端点
-  protocol: "grpc"               # 协议: "grpc" | "http"  
+  protocol: "grpc"               # 协议: "grpc" | "http"
   timeout: "10s"                 # 连接超时
   headers:                       # 自定义请求头
     Authorization: "Bearer token"
@@ -312,7 +540,7 @@ otlp:
 
 ```bash
 export LOG_ENGINE="zap"
-export LOG_LEVEL="debug" 
+export LOG_LEVEL="debug"
 export LOG_FORMAT="json"
 export LOG_OTLP_ENDPOINT="http://localhost:4317"
 export LOG_DEVELOPMENT="true"
@@ -340,7 +568,7 @@ services:
   victorialogs:
     image: victoriametrics/victoria-logs:latest
     ports:
-      - "9428:9428"      # HTTP API  
+      - "9428:9428"      # HTTP API
       - "4317:4317"      # OTLP gRPC
 ```
 
@@ -380,12 +608,12 @@ import (
 
 func main() {
     opt := option.DefaultLogOption()
-    
+
     // 自动添加所有日志配置标志
     fs := pflag.NewFlagSet("myapp", pflag.ExitOnError)
     opt.AddFlags(fs)
     fs.Parse(os.Args[1:])
-    
+
     logger, _ := logger.New(opt)
 }
 ```
@@ -406,11 +634,11 @@ func main() {
 ```go
 opt := &option.LogOption{
     Engine:      "zap",                      // 高性能引擎
-    Level:       "info",                     // 生产级别  
+    Level:       "info",                     // 生产级别
     Format:      "json",                     // 结构化输出
     OutputPaths: []string{"/var/log/app.log"}, // 文件输出
     Development: false,                      // 生产模式
-    
+
     // OTLP 配置
     OTLPEndpoint: os.Getenv("OTLP_ENDPOINT"),
     OTLP: &option.OTLPOption{
@@ -428,21 +656,21 @@ opt := &option.LogOption{
 ```go
 func createLogger(env string) (core.Logger, error) {
     var opt *option.LogOption
-    
+
     switch env {
     case "production":
         opt = &option.LogOption{
             Engine: "zap",
-            Level:  "info", 
+            Level:  "info",
             Format: "json",
             OutputPaths: []string{"/var/log/app.log"},
             OTLPEndpoint: "https://otlp.company.com:4317",
         }
-    case "development":  
+    case "development":
         opt = &option.LogOption{
             Engine: "slog",
             Level:  "debug",
-            Format: "console", 
+            Format: "console",
             OutputPaths: []string{"stdout"},
             Development: true,
         }
@@ -453,7 +681,7 @@ func createLogger(env string) (core.Logger, error) {
             OutputPaths: []string{"stderr"},
         }
     }
-    
+
     return logger.New(opt)
 }
 ```
@@ -487,7 +715,7 @@ go test -bench=. ./...
 # 查看覆盖率
 go test -cover ./...
 
-# 生成覆盖率报告  
+# 生成覆盖率报告
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
 ```
@@ -498,9 +726,8 @@ go tool cover -html=coverage.out
 
 - [📘 **core**](core/README.md) - 核心接口和日志级别
 - [📘 **engines/zap**](engines/zap/README.md) - Zap 引擎实现
-- [📘 **engines/slog**](engines/slog/README.md) - Slog 引擎实现  
+- [📘 **engines/slog**](engines/slog/README.md) - Slog 引擎实现
 - [📘 **factory**](factory/README.md) - 工厂模式和错误处理
-- [📘 **config**](config/README.md) - 智能配置管理
 - [📘 **option**](option/README.md) - 配置选项和验证
 - [📘 **fields**](fields/README.md) - 字段标准化系统
 - [📘 **otlp**](otlp/README.md) - OpenTelemetry 集成
@@ -538,9 +765,9 @@ cd example/comprehensive && go run main.go
 
 如果您遇到问题或有建议，请：
 
-1. 查看 [Issues](https://github.com/kart-io/logger/issues) 
+1. 查看 [Issues](https://github.com/kart-io/logger/issues)
 2. 查看 [文档](README.md) 和各包的 README
-3. 运行相关 [示例](example/) 
+3. 运行相关 [示例](example/)
 4. 提交新的 Issue
 
 ## 📄 许可证

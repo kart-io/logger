@@ -58,15 +58,15 @@ func (so *StandardizedOutput) ToJSON() ([]byte, error) {
 	output[TimestampField] = so.Timestamp
 	output[LevelField] = so.Level
 	output[MessageField] = so.Message
-	
+
 	if so.Caller != "" {
 		output[CallerField] = so.Caller
 	}
-	
+
 	// Add custom fields
 	for k, v := range so.Fields {
 		output[k] = v
 	}
-	
+
 	return json.Marshal(output)
 }

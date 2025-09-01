@@ -132,32 +132,32 @@ func (l *SlogLogger) Warn(args ...interface{}) {
 // Error logs an error message.
 func (l *SlogLogger) Error(args ...interface{}) {
 	attrs := []any{}
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for error level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.Error(formatArgs(args...), attrs...)
 }
 
 // Fatal logs a fatal message and exits.
 func (l *SlogLogger) Fatal(args ...interface{}) {
 	attrs := []any{}
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for fatal level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.Error(formatArgs(args...), attrs...)
 	os.Exit(1)
 }
@@ -192,32 +192,32 @@ func (l *SlogLogger) Warnf(template string, args ...interface{}) {
 // Errorf logs a formatted error message.
 func (l *SlogLogger) Errorf(template string, args ...interface{}) {
 	attrs := []any{}
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for error level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.Error(fmt.Sprintf(template, args...), attrs...)
 }
 
 // Fatalf logs a formatted fatal message and exits.
 func (l *SlogLogger) Fatalf(template string, args ...interface{}) {
 	attrs := []any{}
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for fatal level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.Error(fmt.Sprintf(template, args...), attrs...)
 	os.Exit(1)
 }
@@ -255,16 +255,16 @@ func (l *SlogLogger) Warnw(msg string, keysAndValues ...interface{}) {
 // Errorw logs an error message with structured fields.
 func (l *SlogLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for error level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.ErrorContext(context.Background(), msg, attrs...)
 	l.sendToOTLP(core.ErrorLevel, msg, keysAndValues...)
 }
@@ -272,16 +272,16 @@ func (l *SlogLogger) Errorw(msg string, keysAndValues ...interface{}) {
 // Fatalw logs a fatal message with structured fields and exits.
 func (l *SlogLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-	
+
 	if caller := l.getCaller(); caller != "" {
 		attrs = append(attrs, slog.String(fields.CallerField, caller))
 	}
-	
+
 	// Add stacktrace for fatal level
 	if stacktrace := l.getStacktrace(); stacktrace != "" {
 		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
 	}
-	
+
 	l.logger.ErrorContext(context.Background(), msg, attrs...)
 	l.sendToOTLP(core.FatalLevel, msg, keysAndValues...)
 	os.Exit(1)
@@ -342,7 +342,7 @@ func formatArgs(args ...interface{}) string {
 	if len(args) == 1 {
 		return anyToString(args[0])
 	}
-	
+
 	var parts []string
 	for _, arg := range args {
 		parts = append(parts, anyToString(arg))
@@ -367,25 +367,25 @@ func anyToString(v interface{}) string {
 
 func (l *SlogLogger) convertToSlogAttrs(keysAndValues ...interface{}) []interface{} {
 	attrs := make([]interface{}, 0, len(keysAndValues))
-	
+
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			// Odd number of arguments, use empty value for last key
 			attrs = append(attrs, slog.Any(anyToString(keysAndValues[i]), nil))
 			break
 		}
-		
+
 		key := anyToString(keysAndValues[i])
 		value := keysAndValues[i+1]
-		
+
 		// Apply field mapping for consistency
 		if mappedKey := l.getStandardFieldName(key); mappedKey != "" {
 			key = mappedKey
 		}
-		
+
 		attrs = append(attrs, slog.Any(key, value))
 	}
-	
+
 	return attrs
 }
 
@@ -394,12 +394,12 @@ func (l *SlogLogger) getStandardFieldName(fieldName string) string {
 	if mapped, exists := coreMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	tracingMapping := l.mapper.MapTracingFields()
 	if mapped, exists := tracingMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	return fieldName // Return original if no mapping found
 }
 
@@ -424,7 +424,7 @@ func createOutputWriters(paths []string) (io.Writer, error) {
 	if len(paths) == 0 {
 		return os.Stdout, nil
 	}
-	
+
 	var writers []io.Writer
 	for _, path := range paths {
 		switch strings.ToLower(path) {
@@ -440,20 +440,20 @@ func createOutputWriters(paths []string) (io.Writer, error) {
 			writers = append(writers, file)
 		}
 	}
-	
+
 	if len(writers) == 1 {
 		return writers[0], nil
 	}
-	
+
 	return io.MultiWriter(writers...), nil
 }
 
 // standardizedHandler wraps slog.Handler to ensure field standardization
 type standardizedHandler struct {
-	handler            slog.Handler
-	mapper             *fields.FieldMapper
-	disableCaller      bool
-	disableStacktrace  bool
+	handler           slog.Handler
+	mapper            *fields.FieldMapper
+	disableCaller     bool
+	disableStacktrace bool
 }
 
 func (h *standardizedHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -468,14 +468,13 @@ func (h *standardizedHandler) Handle(ctx context.Context, record slog.Record) er
 		Message: record.Message,
 		PC:      record.PC,
 	}
-	
+
 	// Add standardized engine identifier
 	newRecord.AddAttrs(slog.Attr{
 		Key:   "engine",
 		Value: slog.StringValue("slog"),
 	})
-	
-	
+
 	// Map user-defined fields using our field standardization system
 	record.Attrs(func(attr slog.Attr) bool {
 		standardKey := h.getStandardFieldName(attr.Key)
@@ -485,7 +484,7 @@ func (h *standardizedHandler) Handle(ctx context.Context, record slog.Record) er
 		})
 		return true
 	})
-	
+
 	return h.handler.Handle(ctx, newRecord)
 }
 
@@ -514,18 +513,17 @@ func (h *standardizedHandler) WithGroup(name string) slog.Handler {
 	}
 }
 
-
 func (h *standardizedHandler) getStandardFieldName(fieldName string) string {
 	coreMapping := h.mapper.MapCoreFields()
 	if mapped, exists := coreMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	tracingMapping := h.mapper.MapTracingFields()
 	if mapped, exists := tracingMapping[fieldName]; exists {
 		return mapped
 	}
-	
+
 	return fieldName // Return original if no mapping found
 }
 
@@ -534,7 +532,7 @@ func (l *SlogLogger) getCaller() string {
 	if l == nil {
 		return ""
 	}
-	
+
 	// Check if this is a call through global logger function
 	// by looking at the call stack
 	var pcs [10]uintptr
@@ -542,10 +540,10 @@ func (l *SlogLogger) getCaller() string {
 	if n == 0 {
 		return ""
 	}
-	
+
 	fs := runtime.CallersFrames(pcs[:n])
 	hasGlobalCall := false
-	
+
 	// Check if there's a global logger function in the call stack
 	for i := 0; i < n; i++ {
 		if f, more := fs.Next(); more || i == n-1 {
@@ -555,7 +553,7 @@ func (l *SlogLogger) getCaller() string {
 			}
 		}
 	}
-	
+
 	// Determine skip based on call type
 	var skip int
 	if hasGlobalCall {
@@ -563,7 +561,7 @@ func (l *SlogLogger) getCaller() string {
 	} else {
 		skip = 3 + l.callerSkip // getCaller -> SlogLogger method -> actual caller
 	}
-	
+
 	var pcs2 [1]uintptr
 	if runtime.Callers(skip, pcs2[:]) > 0 {
 		fs2 := runtime.CallersFrames(pcs2[:1])
@@ -575,11 +573,11 @@ func (l *SlogLogger) getCaller() string {
 					file = file[idx2+1:] // Keep last two path segments
 				}
 			}
-			
+
 			return fmt.Sprintf("%s:%d", file, f.Line)
 		}
 	}
-	
+
 	return ""
 }
 
@@ -588,46 +586,46 @@ func (l *SlogLogger) getStacktrace() string {
 	if l == nil || l.disableStacktrace {
 		return ""
 	}
-	
+
 	// Skip frames: getStacktrace -> SlogLogger method -> actual caller
 	const baseSkip = 3
 	skip := baseSkip + l.callerSkip
-	
+
 	var pcs [10]uintptr
 	n := runtime.Callers(skip, pcs[:])
 	if n == 0 {
 		return ""
 	}
-	
+
 	fs := runtime.CallersFrames(pcs[:n])
 	var stackTrace strings.Builder
-	
+
 	for {
 		f, more := fs.Next()
-		
+
 		// Extract function name and location
 		funcName := f.Function
 		if idx := strings.LastIndex(funcName, "/"); idx >= 0 {
 			funcName = funcName[idx+1:]
 		}
-		
+
 		file := f.File
 		if idx := strings.LastIndex(file, "/"); idx >= 0 {
 			if idx2 := strings.LastIndex(file[:idx], "/"); idx2 >= 0 {
 				file = file[idx2+1:] // Keep last two path segments
 			}
 		}
-		
+
 		if stackTrace.Len() > 0 {
 			stackTrace.WriteString("\\n")
 		}
 		stackTrace.WriteString(fmt.Sprintf("%s\\n\\t%s:%d", funcName, file, f.Line))
-		
+
 		if !more {
 			break
 		}
 	}
-	
+
 	return stackTrace.String()
 }
 
@@ -639,15 +637,15 @@ func (l *SlogLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...i
 
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
-	
+
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			break
 		}
-		
+
 		key := anyToString(keysAndValues[i])
 		value := keysAndValues[i+1]
-		
+
 		// Apply field mapping
 		standardKey := l.getStandardFieldName(key)
 		attributes[standardKey] = value

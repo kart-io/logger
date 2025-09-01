@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kart-io/logger/config"
 	"github.com/kart-io/logger/core"
 	"github.com/kart-io/logger/factory"
 	"github.com/kart-io/logger/option"
@@ -30,7 +29,7 @@ func main() {
 
 	// 1. Create initial configuration
 	fmt.Println("\n1. Setting up initial configuration...")
-	initialConfig := &config.Config{
+	initialConfig := &option.LogOption{
 		Engine:      "slog",
 		Level:       "INFO",
 		Format:      "json",
@@ -44,8 +43,7 @@ func main() {
 	}
 
 	// Create logger with initial config
-	opt := configToOption(initialConfig)
-	factory := factory.NewLoggerFactory(opt)
+	factory := factory.NewLoggerFactory(initialConfig)
 	coreLogger, err := factory.CreateLogger()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create initial logger: %v", err))
@@ -60,7 +58,7 @@ func main() {
 		ReloadTimeout:        10 * time.Second,
 		BackupOnReload:       true,
 		BackupRetention:      3,
-		Callback: func(oldConfig, newConfig *config.Config) error {
+		Callback: func(oldConfig, newConfig *option.LogOption) error {
 			fmt.Printf("📄 Config reloaded: %s->%s, %s->%s, %s->%s\n",
 				oldConfig.Engine, newConfig.Engine,
 				oldConfig.Level, newConfig.Level,
@@ -91,10 +89,10 @@ func main() {
 	time.Sleep(500 * time.Millisecond) // Allow file watcher to initialize
 
 	// Update config file
-	newConfig1 := &config.Config{
+	newConfig1 := &option.LogOption{
 		Engine:      "zap",
 		Level:       "DEBUG",
-		Format:      "text",
+		Format:      "console",
 		OutputPaths: []string{"stdout"},
 		Development: true,
 	}
@@ -113,7 +111,7 @@ func main() {
 
 	// 5. Demonstrate API-triggered reload
 	fmt.Println("\n5. Demonstrating API-triggered configuration reload...")
-	newConfig2 := &config.Config{
+	newConfig2 := &option.LogOption{
 		Engine:            "slog",
 		Level:             "WARN",
 		Format:            "json",
@@ -136,7 +134,7 @@ func main() {
 	fmt.Println("\n6. Demonstrating signal-based configuration reload...")
 	
 	// Update config file first
-	newConfig3 := &config.Config{
+	newConfig3 := &option.LogOption{
 		Engine:      "zap",
 		Level:       "ERROR",
 		Format:      "json",
@@ -181,7 +179,7 @@ func main() {
 	fmt.Println("\n9. Demonstrating configuration validation...")
 	
 	// Create invalid config (empty engine)
-	invalidConfig := &config.Config{
+	invalidConfig := &option.LogOption{
 		Engine: "", // Invalid empty engine
 		Level:  "INFO",
 		Format: "json",
@@ -217,7 +215,7 @@ func logSamples(logger core.Logger, prefix string) {
 	logger.Errorw("Error structured message", "prefix", prefix, "type", "structured", "counter", 4)
 }
 
-func writeConfigFile(filename string, config *config.Config) error {
+func writeConfigFile(filename string, config *option.LogOption) error {
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
@@ -226,36 +224,3 @@ func writeConfigFile(filename string, config *config.Config) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
-func configToOption(cfg *config.Config) *option.LogOption {
-	opt := &option.LogOption{
-		Engine:            cfg.Engine,
-		Level:             cfg.Level,
-		Format:            cfg.Format,
-		OutputPaths:       cfg.OutputPaths,
-		Development:       cfg.Development,
-		DisableCaller:     cfg.DisableCaller,
-		DisableStacktrace: cfg.DisableStacktrace,
-	}
-
-	if cfg.OTLP != nil {
-		opt.OTLP = &option.OTLPOption{
-			Enabled:  cfg.OTLP.Enabled,
-			Endpoint: cfg.OTLP.Endpoint,
-			Protocol: cfg.OTLP.Protocol,
-			Timeout:  cfg.OTLP.Timeout,
-			Headers:  cfg.OTLP.Headers,
-		}
-	}
-
-	// Handle flattened OTLP endpoint
-	if cfg.OTLPEndpoint != "" {
-		if opt.OTLP == nil {
-			opt.OTLP = &option.OTLPOption{}
-		}
-		if opt.OTLP.Endpoint == "" {
-			opt.OTLP.Endpoint = cfg.OTLPEndpoint
-		}
-	}
-
-	return opt
-}
