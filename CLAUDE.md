@@ -15,6 +15,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Go 库项目的标准开发流程：
 
 ```bash
+# 使用 Makefile（推荐）
+make help              # 显示所有可用命令
+make fmt               # 代码格式化和检查
+make test              # 运行所有测试
+make test-verbose      # 详细测试输出
+make test-coverage     # 显示覆盖率
+make coverage          # 生成覆盖率报告
+make bench             # 运行基准测试（重要）
+make build             # 构建库
+make clean             # 清理构建产物
+make check             # 格式化 + 测试
+
+# 快速运行示例
+make example-comprehensive
+make example-performance
+make example-otlp
+
+# 手动命令
 # 添加核心依赖（首次开发）
 go get go.uber.org/zap
 go get log/slog  # Go 1.21+ 标准库
