@@ -44,7 +44,7 @@ func main() {
 
 	// Start both servers
 	var wg sync.WaitGroup
-	
+
 	// Start Gin server
 	wg.Add(1)
 	go func() {
@@ -117,7 +117,7 @@ func setupGinServer(logger core.Logger) *http.Server {
 		startTime := time.Now()
 		c.Next()
 		latency := time.Since(startTime)
-		
+
 		logger.Infow("Gin Request",
 			"framework", "gin",
 			"method", c.Request.Method,
@@ -150,7 +150,7 @@ func setupGinServer(logger core.Logger) *http.Server {
 				"Route groups",
 				"Custom recovery",
 			},
-			"performance": "Very high",
+			"performance":    "Very high",
 			"learning_curve": "Easy",
 		})
 	})
@@ -182,7 +182,7 @@ func setupEchoServer(logger core.Logger) *echo.Echo {
 			startTime := time.Now()
 			err := next(c)
 			latency := time.Since(startTime)
-			
+
 			logger.Infow("Echo Request",
 				"framework", "echo",
 				"method", c.Request().Method,
@@ -220,7 +220,7 @@ func setupEchoServer(logger core.Logger) *echo.Echo {
 				"Data binding",
 				"Built-in HTTP/2 support",
 			},
-			"performance": "Excellent",
+			"performance":    "Excellent",
 			"learning_curve": "Moderate",
 		})
 	})

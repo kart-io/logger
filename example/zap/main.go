@@ -137,7 +137,7 @@ func demonstrateHighPerformance() {
 
 	// Simulate high-frequency logging
 	start := time.Now()
-	
+
 	for i := 0; i < 10; i++ {
 		perfLogger.Infow("High frequency log entry",
 			"iteration", i,
@@ -319,10 +319,10 @@ func demonstratePerformanceFeatures() {
 
 	for batch := 1; batch <= 5; batch++ {
 		start := time.Now()
-		
+
 		// Simulate batch processing
 		time.Sleep(20 * time.Millisecond)
-		
+
 		batchLogger.Infow("Batch processed",
 			"batch_number", batch,
 			"records_processed", batch*1000,

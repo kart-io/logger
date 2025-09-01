@@ -31,7 +31,7 @@ func main() {
 
 	initialOpt := &option.LogOption{
 		Engine:      "slog",
-		Level:       "INFO", 
+		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		Development: false,
@@ -101,7 +101,7 @@ func main() {
 			"addr", ":8080",
 			"config_file", configFile,
 			"triggers", "file_watch,signal,api")
-		
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			coreLogger.Errorw("Server failed to start", "error", err.Error())
 		}
@@ -141,14 +141,14 @@ func GinLoggerMiddleware(logger core.Logger) gin.HandlerFunc {
 
 		// Calculate processing time
 		latency := time.Since(startTime)
-		
+
 		// Get request info
 		method := c.Request.Method
 		path := c.Request.URL.Path
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
 		userAgent := c.Request.UserAgent()
-		
+
 		// Structured logging fields
 		logFields := []interface{}{
 			"component", "gin",
@@ -198,7 +198,7 @@ func GinRecoveryMiddleware(logger core.Logger) gin.HandlerFunc {
 					"panic_error", fmt.Sprintf("%v", err),
 					"recovered", true,
 				)
-				
+
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": "Internal server error",
 					"code":  "PANIC_RECOVERED",
@@ -214,9 +214,9 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 	r.GET("/", func(c *gin.Context) {
 		logger.Infow("Welcome endpoint accessed", "feature", "gin_reload_demo")
 		c.JSON(http.StatusOK, gin.H{
-			"message":     "Gin + Dynamic Config Reload Demo",
-			"version":     "1.0.0",
-			"time":        time.Now().Format(time.RFC3339),
+			"message":        "Gin + Dynamic Config Reload Demo",
+			"version":        "1.0.0",
+			"time":           time.Now().Format(time.RFC3339),
 			"current_config": getCurrentConfigSummary(reloader),
 		})
 	})
@@ -228,7 +228,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 		configAPI.GET("/current", func(c *gin.Context) {
 			currentConfig := reloader.GetCurrentConfig()
 			logger.Infow("Current config requested", "operation", "get_config")
-			
+
 			c.JSON(http.StatusOK, gin.H{
 				"current_config": currentConfig,
 				"backup_count":   len(reloader.GetBackupConfigs()),
@@ -247,7 +247,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 				return
 			}
 
-			logger.Infow("API config reload triggered", 
+			logger.Infow("API config reload triggered",
 				"old_engine", reloader.GetCurrentConfig().Engine,
 				"new_engine", newConfig.Engine)
 
@@ -262,9 +262,9 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 
 			// Wait a bit for reload to complete
 			time.Sleep(200 * time.Millisecond)
-			
+
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Configuration reloaded successfully",
+				"message":    "Configuration reloaded successfully",
 				"new_config": getCurrentConfigSummary(reloader),
 			})
 		})
@@ -272,7 +272,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 		// Rollback to previous configuration
 		configAPI.POST("/rollback", func(c *gin.Context) {
 			logger.Infow("Config rollback requested", "operation", "rollback")
-			
+
 			if err := reloader.RollbackToPrevious(); err != nil {
 				logger.Errorw("Failed to rollback configuration", "error", err.Error())
 				c.JSON(http.StatusBadRequest, gin.H{
@@ -283,7 +283,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 			}
 
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Configuration rolled back successfully",
+				"message":        "Configuration rolled back successfully",
 				"current_config": getCurrentConfigSummary(reloader),
 			})
 		})
@@ -292,7 +292,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 		configAPI.GET("/backups", func(c *gin.Context) {
 			backups := reloader.GetBackupConfigs()
 			logger.Debugw("Config backups requested", "backup_count", len(backups))
-			
+
 			c.JSON(http.StatusOK, gin.H{
 				"backup_count": len(backups),
 				"backups":      backups,
@@ -305,9 +305,9 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 	{
 		userRoutes.GET("/:id", func(c *gin.Context) {
 			userID := c.Param("id")
-			
+
 			logger.Debugw("User lookup started", "user_id", userID, "operation", "get_user")
-			
+
 			// Validate user ID
 			if id, err := strconv.Atoi(userID); err != nil || id <= 0 {
 				logger.Warnw("Invalid user ID format", "user_id", userID, "validation", "failed")
@@ -320,10 +320,10 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 
 			// Set context for middleware
 			c.Set("user_id", userID)
-			
+
 			// Simulate processing
 			time.Sleep(50 * time.Millisecond)
-			
+
 			logger.Infow("User retrieved successfully", "user_id", userID)
 			c.JSON(http.StatusOK, gin.H{
 				"id":    userID,
@@ -340,8 +340,8 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 			}
 
 			if err := c.ShouldBindJSON(&user); err != nil {
-				logger.Warnw("User creation validation failed", 
-					"error", err.Error(), 
+				logger.Warnw("User creation validation failed",
+					"error", err.Error(),
 					"operation", "create_user")
 				c.JSON(http.StatusBadRequest, gin.H{
 					"error": "Validation failed",
@@ -351,10 +351,10 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 			}
 
 			userID := strconv.Itoa(int(time.Now().Unix() % 10000))
-			
-			logger.Infow("New user created", 
-				"user_id", userID, 
-				"name", user.Name, 
+
+			logger.Infow("New user created",
+				"user_id", userID,
+				"name", user.Name,
 				"email", user.Email,
 				"operation", "create_user")
 
@@ -371,9 +371,9 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 	r.GET("/health", func(c *gin.Context) {
 		logger.Debugw("Health check", "endpoint", "/health")
 		c.JSON(http.StatusOK, gin.H{
-			"status":  "healthy",
-			"time":    time.Now().Format(time.RFC3339),
-			"config":  getCurrentConfigSummary(reloader),
+			"status": "healthy",
+			"time":   time.Now().Format(time.RFC3339),
+			"config": getCurrentConfigSummary(reloader),
 		})
 	})
 
@@ -382,7 +382,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger, reloader *reload.ConfigReloa
 		logger.Debugw("Slow endpoint accessed", "expected_delay", "3s")
 		time.Sleep(3 * time.Second)
 		logger.Warnw("Slow operation completed", "operation", "slow_task")
-		
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Intentionally slow endpoint",
 			"delay":   "3 seconds",
@@ -429,17 +429,17 @@ development: false          # 开发模式
 func getCurrentConfigSummary(reloader *reload.ConfigReloader) map[string]interface{} {
 	config := reloader.GetCurrentConfig()
 	return map[string]interface{}{
-		"engine":      config.Engine,
-		"level":       config.Level,
-		"format":      config.Format,
-		"development": config.Development,
+		"engine":       config.Engine,
+		"level":        config.Level,
+		"format":       config.Format,
+		"development":  config.Development,
 		"otlp_enabled": config.OTLP != nil && config.OTLP.IsEnabled(),
 	}
 }
 
 func printUsageInstructions(configFile string) {
 	absPath, _ := filepath.Abs(configFile)
-	
+
 	fmt.Println("\n🚀 Server started on :8080")
 	fmt.Println("\n📡 API Endpoints:")
 	fmt.Println("  GET  http://localhost:8080/                     - Welcome + current config")
@@ -454,18 +454,18 @@ func printUsageInstructions(configFile string) {
 	fmt.Println("  POST http://localhost:8080/config/reload        - Trigger config reload")
 	fmt.Println("  POST http://localhost:8080/config/rollback      - Rollback to previous")
 	fmt.Println("  GET  http://localhost:8080/config/backups       - Get backup configs")
-	
+
 	fmt.Println("\n🔄 Dynamic Config Reload Options:")
 	fmt.Printf("  1. 📁 File Watch: Edit %s\n", absPath)
 	fmt.Printf("  2. 📡 Signal: kill -USR1 %d\n", os.Getpid())
 	fmt.Println("  3. 🌐 HTTP API: POST /config/reload")
-	
+
 	fmt.Println("\n💡 Try these config changes:")
 	fmt.Println(`  # Switch to Zap engine with DEBUG level
   engine: "zap"
   level: "DEBUG"
   format: "console"
   development: true`)
-	
+
 	fmt.Println("\n❌ Press Ctrl+C to stop")
 }

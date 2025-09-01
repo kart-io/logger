@@ -4,6 +4,7 @@
 
 # Format code
 fmt:
+	gofmt -s -w .
 	go fmt ./...
 	go vet ./...
 
@@ -57,7 +58,7 @@ example-otlp:
 # Help
 help:
 	@echo "Available commands:"
-	@echo "  fmt              - Format code and run vet"
+	@echo "  fmt              - Format code with gofmt -s and run vet"
 	@echo "  test             - Run tests"
 	@echo "  test-verbose     - Run tests with verbose output"
 	@echo "  test-coverage    - Run tests with coverage"

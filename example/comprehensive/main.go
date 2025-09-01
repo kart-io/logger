@@ -17,7 +17,7 @@ func main() {
 	// Example 1: Basic Logging Methods
 	demonstrateBasicMethods()
 
-	// Example 2: Printf-style Logging Methods  
+	// Example 2: Printf-style Logging Methods
 	demonstratePrintfMethods()
 
 	// Example 3: Structured Logging Methods
@@ -48,7 +48,7 @@ func main() {
 func demonstrateBasicMethods() {
 	fmt.Println("1. Basic Logging Methods")
 	fmt.Println("========================")
-	
+
 	// Create a logger instance with basic OTLP configuration
 	opt := &option.LogOption{
 		Engine:      "slog",
@@ -56,9 +56,9 @@ func demonstrateBasicMethods() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint (change to your OTLP collector)
-			Protocol: "grpc", // grpc or http/protobuf
+			Protocol: "grpc",                  // grpc or http/protobuf
 			Timeout:  10 * time.Second,
 			Headers: map[string]string{
 				"Authorization": "Bearer your-token-here", // Optional auth
@@ -77,7 +77,7 @@ func demonstrateBasicMethods() {
 	logger.Warn("This is a warning message")
 	logger.Error("This is an error message")
 	// Note: Fatal would exit the program, so we skip it in examples
-	
+
 	fmt.Println()
 }
 
@@ -85,14 +85,14 @@ func demonstrateBasicMethods() {
 func demonstratePrintfMethods() {
 	fmt.Println("2. Printf-style Logging Methods")
 	fmt.Println("===============================")
-	
+
 	opt := &option.LogOption{
 		Engine:      "zap",
 		Level:       "DEBUG",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -113,7 +113,7 @@ func demonstratePrintfMethods() {
 	logger.Warnf("User %s (ID: %d) has %d failed login attempts", userName, userID, 3)
 	logger.Errorf("User %s (ID: %d) login failed: %s", userName, userID, "invalid password")
 	// Note: Fatalf would exit the program, so we skip it in examples
-	
+
 	fmt.Println()
 }
 
@@ -121,14 +121,14 @@ func demonstratePrintfMethods() {
 func demonstrateStructuredMethods() {
 	fmt.Println("3. Structured Logging Methods")
 	fmt.Println("=============================")
-	
+
 	opt := &option.LogOption{
 		Engine:      "slog",
 		Level:       "DEBUG",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -172,7 +172,7 @@ func demonstrateStructuredMethods() {
 	)
 
 	// Note: Fatalw would exit the program, so we skip it in examples
-	
+
 	fmt.Println()
 }
 
@@ -180,14 +180,14 @@ func demonstrateStructuredMethods() {
 func demonstrateEnhancementMethods() {
 	fmt.Println("4. Logger Enhancement Methods")
 	fmt.Println("=============================")
-	
+
 	opt := &option.LogOption{
 		Engine:      "zap",
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -235,7 +235,7 @@ func logWithWrapper(l core.Logger) {
 func demonstrateGlobalLogger() {
 	fmt.Println("5. Global Logger Usage")
 	fmt.Println("======================")
-	
+
 	// Global logger uses default configuration (slog engine)
 	logger.Debug("Global debug message")
 	logger.Info("Global info message")
@@ -271,7 +271,7 @@ func demonstrateGlobalLogger() {
 func demonstrateConfiguration() {
 	fmt.Println("6. Configuration Examples")
 	fmt.Println("=========================")
-	
+
 	// 6.1 Slog engine with console format
 	fmt.Println("6.1 Slog engine with console format:")
 	slogConsoleOpt := &option.LogOption{
@@ -281,9 +281,9 @@ func demonstrateConfiguration() {
 		OutputPaths: []string{"stdout"},
 		Development: true,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4318", // HTTP endpoint for console format demo
-			Protocol: "http/protobuf", // Use HTTP for console format
+			Protocol: "http/protobuf",         // Use HTTP for console format
 		},
 	}
 
@@ -304,10 +304,10 @@ func demonstrateConfiguration() {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for production
-			Protocol: "grpc", // gRPC is preferred for production
-			Timeout:  30 * time.Second, // Longer timeout for production
+			Protocol: "grpc",                  // gRPC is preferred for production
+			Timeout:  30 * time.Second,        // Longer timeout for production
 			Headers: map[string]string{
 				"service.name":    "comprehensive-demo",
 				"service.version": "1.0.0",
@@ -330,7 +330,7 @@ func demonstrateConfiguration() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -350,7 +350,7 @@ func demonstrateConfiguration() {
 func demonstrateErrorHandling() {
 	fmt.Println("7. Error Handling and Stacktraces")
 	fmt.Println("==================================")
-	
+
 	// 7.1 Slog engine with stacktrace
 	fmt.Println("7.1 Slog engine error with stacktrace:")
 	slogOpt := &option.LogOption{
@@ -360,7 +360,7 @@ func demonstrateErrorHandling() {
 		OutputPaths:       []string{"stdout"},
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -389,7 +389,7 @@ func demonstrateErrorHandling() {
 		OutputPaths:       []string{"stdout"},
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint
 			Protocol: "grpc",
 		},
@@ -421,14 +421,14 @@ func simulateError() error {
 func demonstrateContextAndTracing() {
 	fmt.Println("8. Context and Tracing")
 	fmt.Println("======================")
-	
+
 	opt := &option.LogOption{
 		Engine:      "slog",
 		Level:       "INFO",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have OTLP collector running
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for tracing demo
 			Protocol: "grpc",
 			Headers: map[string]string{
@@ -444,7 +444,7 @@ func demonstrateContextAndTracing() {
 
 	// Simulate distributed tracing context
 	ctx := context.Background()
-	
+
 	// Create a trace context logger
 	traceLogger := baseLogger.WithCtx(ctx,
 		"trace_id", "trace_abc123def456",
@@ -483,10 +483,10 @@ func demonstrateContextAndTracing() {
 	// Demonstrate field standardization with various formats
 	fmt.Println("\n8.1 Field standardization demo:")
 	standardLogger := baseLogger.With(
-		"ts", time.Now().Unix(),        // Will be mapped to timestamp
-		"msg", "custom message",        // Will be mapped to message  
+		"ts", time.Now().Unix(), // Will be mapped to timestamp
+		"msg", "custom message", // Will be mapped to message
 		"trace.id", "trace_field_test", // Will be mapped to trace_id
-		"span.id", "span_field_test",   // Will be mapped to span_id
+		"span.id", "span_field_test", // Will be mapped to span_id
 	)
 
 	standardLogger.Info("Field standardization example")
@@ -498,7 +498,7 @@ func demonstrateContextAndTracing() {
 func demonstrateOTLPConfiguration() {
 	fmt.Println("9. OTLP Configuration Options")
 	fmt.Println("=============================")
-	
+
 	// 9.1 OTLP with gRPC protocol (most common)
 	fmt.Println("9.1 OTLP gRPC configuration example:")
 	grpcOpt := &option.LogOption{
@@ -507,7 +507,7 @@ func demonstrateOTLPConfiguration() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Set to true if you have an OTLP collector running
+			Enabled:  boolPtr(false),          // Set to true if you have an OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // Standard OTLP gRPC port
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -538,7 +538,7 @@ func demonstrateOTLPConfiguration() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Set to true if you have an OTLP collector running
+			Enabled:  boolPtr(false),                  // Set to true if you have an OTLP collector running
 			Endpoint: "http://127.0.0.1:4318/v1/logs", // Standard OTLP HTTP endpoint
 			Protocol: "http/protobuf",
 			Timeout:  15 * time.Second,
@@ -569,7 +569,7 @@ func demonstrateOTLPConfiguration() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Set to true if you have an OTLP collector running
+			Enabled:  boolPtr(false),                  // Set to true if you have an OTLP collector running
 			Endpoint: "https://otlp.example.com:4317", // External OTLP service
 			Protocol: "grpc",
 			Timeout:  30 * time.Second, // Longer timeout for external service
@@ -600,7 +600,7 @@ func demonstrateOTLPConfiguration() {
 	// 9.4 OTLP configuration notes
 	fmt.Println("\n9.4 OTLP Configuration Notes:")
 	fmt.Println("   - Enable OTLP by setting Enabled: true when you have a collector running")
-	fmt.Println("   - Default gRPC port: 4317, Default HTTP port: 4318") 
+	fmt.Println("   - Default gRPC port: 4317, Default HTTP port: 4318")
 	fmt.Println("   - Use gRPC for better performance, HTTP for firewall compatibility")
 	fmt.Println("   - Add service metadata in Headers for better observability")
 	fmt.Println("   - Common OTLP collectors: Jaeger, VictoriaLogs, OpenTelemetry Collector")

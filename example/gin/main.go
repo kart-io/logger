@@ -27,7 +27,7 @@ func main() {
 		OutputPaths: []string{"stdout"},
 		Development: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(true), // 启用 OTLP 发送到收集器
+			Enabled:  boolPtr(true),    // 启用 OTLP 发送到收集器
 			Endpoint: "127.0.0.1:4317", // gRPC 端点（修正格式）
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -112,14 +112,14 @@ func GinLoggerMiddleware(logger core.Logger) gin.HandlerFunc {
 
 		// Calculate processing time
 		latency := time.Since(startTime)
-		
+
 		// Get request info
 		method := c.Request.Method
 		path := c.Request.URL.Path
 		statusCode := c.Writer.Status()
 		clientIP := c.ClientIP()
 		userAgent := c.Request.UserAgent()
-		
+
 		// Determine log level based on status code
 		logFields := []interface{}{
 			"component", "gin",
@@ -169,7 +169,7 @@ func GinRecoveryMiddleware(logger core.Logger) gin.HandlerFunc {
 					"error", err,
 					"panic", true,
 				)
-				
+
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"error": "Internal server error",
 					"code":  "PANIC_RECOVERED",
@@ -197,13 +197,13 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 		// Get user by ID
 		userRoutes.GET("/:id", func(c *gin.Context) {
 			userID := c.Param("id")
-			
+
 			// Simulate user lookup with structured logging
 			logger.Debugw("Looking up user", "user_id", userID, "operation", "get_user")
-			
+
 			// Simulate some processing time
 			time.Sleep(50 * time.Millisecond)
-			
+
 			// Check if user ID is valid (for demo purposes)
 			if id, err := strconv.Atoi(userID); err != nil || id <= 0 {
 				logger.Warnw("Invalid user ID requested", "user_id", userID, "error", "invalid_format")
@@ -216,7 +216,7 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 
 			// Set user context for middleware logging
 			c.Set("user_id", userID)
-			
+
 			logger.Infow("User retrieved successfully", "user_id", userID)
 			c.JSON(http.StatusOK, gin.H{
 				"id":    userID,
@@ -244,10 +244,10 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 
 			// Simulate user creation
 			userID := strconv.Itoa(int(time.Now().Unix() % 10000))
-			
-			logger.Infow("User created successfully", 
-				"user_id", userID, 
-				"name", user.Name, 
+
+			logger.Infow("User created successfully",
+				"user_id", userID,
+				"name", user.Name,
 				"email", user.Email,
 				"operation", "create_user")
 
@@ -273,10 +273,10 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 	// Slow endpoint for testing latency logging
 	r.GET("/slow", func(c *gin.Context) {
 		logger.Debugw("Slow endpoint accessed", "expected_delay", "3s")
-		
+
 		// Simulate slow operation
 		time.Sleep(3 * time.Second)
-		
+
 		logger.Warnw("Slow operation completed", "operation", "slow_task", "duration", "3s")
 		c.JSON(http.StatusOK, gin.H{
 			"message": "This was intentionally slow",
@@ -306,14 +306,14 @@ func setupRoutes(r *gin.Engine, logger core.Logger) {
 			"title":       "Gin + Unified Logger API",
 			"description": "Demonstration of unified logger integration with Gin framework",
 			"endpoints": map[string]string{
-				"GET /":            "Welcome message",
-				"GET /users/:id":   "Get user by ID",
-				"POST /users":      "Create new user",
-				"GET /health":      "Health check",
-				"GET /slow":        "Slow endpoint (3s delay)",
-				"GET /error":       "Error endpoint",
-				"GET /panic":       "Panic endpoint (tests recovery)",
-				"GET /docs":        "This documentation",
+				"GET /":          "Welcome message",
+				"GET /users/:id": "Get user by ID",
+				"POST /users":    "Create new user",
+				"GET /health":    "Health check",
+				"GET /slow":      "Slow endpoint (3s delay)",
+				"GET /error":     "Error endpoint",
+				"GET /panic":     "Panic endpoint (tests recovery)",
+				"GET /docs":      "This documentation",
 			},
 			"features": []string{
 				"Structured JSON logging",

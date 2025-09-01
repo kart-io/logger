@@ -54,7 +54,7 @@ func demonstrateSingleThreadedPerformance() {
 
 	fmt.Printf("Testing Slog engine with %d iterations...\n", iterations)
 	start := time.Now()
-	
+
 	for i := 0; i < iterations; i++ {
 		slogLogger.Infow("Performance test message",
 			"iteration", i,
@@ -64,7 +64,7 @@ func demonstrateSingleThreadedPerformance() {
 			"status", "processing",
 		)
 	}
-	
+
 	slogDuration := time.Since(start)
 	fmt.Printf("Slog: %d logs in %v (%.2f logs/sec)\n", iterations, slogDuration, float64(iterations)/slogDuration.Seconds())
 
@@ -91,7 +91,7 @@ func demonstrateSingleThreadedPerformance() {
 
 	fmt.Printf("Testing Zap engine with %d iterations...\n", iterations)
 	start = time.Now()
-	
+
 	for i := 0; i < iterations; i++ {
 		zapLogger.Infow("Performance test message",
 			"iteration", i,
@@ -101,7 +101,7 @@ func demonstrateSingleThreadedPerformance() {
 			"status", "processing",
 		)
 	}
-	
+
 	zapDuration := time.Since(start)
 	fmt.Printf("Zap: %d logs in %v (%.2f logs/sec)\n", iterations, zapDuration, float64(iterations)/zapDuration.Seconds())
 
@@ -147,12 +147,12 @@ func demonstrateMultiThreadedPerformance() {
 		panic(err)
 	}
 
-	fmt.Printf("Testing Slog engine: %d goroutines x %d iterations = %d total logs\n", 
+	fmt.Printf("Testing Slog engine: %d goroutines x %d iterations = %d total logs\n",
 		goroutines, iterationsPerGoroutine, totalIterations)
-	
+
 	start := time.Now()
 	var wg sync.WaitGroup
-	
+
 	for g := 0; g < goroutines; g++ {
 		wg.Add(1)
 		go func(goroutineID int) {
@@ -168,10 +168,10 @@ func demonstrateMultiThreadedPerformance() {
 			}
 		}(g)
 	}
-	
+
 	wg.Wait()
 	slogDuration := time.Since(start)
-	fmt.Printf("Slog concurrent: %d logs in %v (%.2f logs/sec)\n", 
+	fmt.Printf("Slog concurrent: %d logs in %v (%.2f logs/sec)\n",
 		totalIterations, slogDuration, float64(totalIterations)/slogDuration.Seconds())
 
 	// Test Zap engine with concurrency
@@ -195,12 +195,12 @@ func demonstrateMultiThreadedPerformance() {
 		panic(err)
 	}
 
-	fmt.Printf("Testing Zap engine: %d goroutines x %d iterations = %d total logs\n", 
+	fmt.Printf("Testing Zap engine: %d goroutines x %d iterations = %d total logs\n",
 		goroutines, iterationsPerGoroutine, totalIterations)
-	
+
 	start = time.Now()
 	wg = sync.WaitGroup{}
-	
+
 	for g := 0; g < goroutines; g++ {
 		wg.Add(1)
 		go func(goroutineID int) {
@@ -216,10 +216,10 @@ func demonstrateMultiThreadedPerformance() {
 			}
 		}(g)
 	}
-	
+
 	wg.Wait()
 	zapDuration := time.Since(start)
-	fmt.Printf("Zap concurrent: %d logs in %v (%.2f logs/sec)\n", 
+	fmt.Printf("Zap concurrent: %d logs in %v (%.2f logs/sec)\n",
 		totalIterations, zapDuration, float64(totalIterations)/zapDuration.Seconds())
 
 	// Performance comparison
@@ -281,7 +281,7 @@ func demonstrateMemoryUsage() {
 	}
 
 	// Demonstrate different logging patterns and their memory characteristics
-	
+
 	fmt.Println("3.1 Simple logging (minimal allocations):")
 	slogLogger.Info("Simple slog message")
 	zapLogger.Info("Simple zap message")
@@ -293,7 +293,7 @@ func demonstrateMemoryUsage() {
 		"bool_field", true,
 		"string_field", "static_string",
 	)
-	
+
 	zapLogger.Infow("Zap structured with primitives",
 		"int_field", 42,
 		"float_field", 3.14,
@@ -307,7 +307,7 @@ func demonstrateMemoryUsage() {
 			"key1": "value1",
 			"key2": "value2",
 		},
-		"slice": []int{1, 2, 3, 4, 5},
+		"slice":     []int{1, 2, 3, 4, 5},
 		"timestamp": time.Now(),
 	}
 
@@ -315,7 +315,7 @@ func demonstrateMemoryUsage() {
 		"complex_data", complexData,
 		"user_metadata", map[string]interface{}{
 			"preferences": []string{"email", "sms"},
-			"settings": map[string]bool{"notifications": true},
+			"settings":    map[string]bool{"notifications": true},
 		},
 	)
 
@@ -323,7 +323,7 @@ func demonstrateMemoryUsage() {
 		"complex_data", complexData,
 		"user_metadata", map[string]interface{}{
 			"preferences": []string{"email", "sms"},
-			"settings": map[string]bool{"notifications": true},
+			"settings":    map[string]bool{"notifications": true},
 		},
 	)
 
@@ -333,7 +333,7 @@ func demonstrateMemoryUsage() {
 		"version", "1.0.0",
 		"persistent_id", 12345,
 	)
-	
+
 	zapChild := zapLogger.With(
 		"service", "user-service",
 		"version", "1.0.0",

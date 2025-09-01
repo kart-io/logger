@@ -20,7 +20,7 @@ func main() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Endpoint: "127.0.0.1:4318",  // 直接连接到Collector的HTTP端口
+			Endpoint: "127.0.0.1:4318", // 直接连接到Collector的HTTP端口
 			Protocol: "http",
 			Timeout:  5 * time.Second,
 		},
@@ -33,9 +33,9 @@ func main() {
 	}
 
 	fmt.Println("✅ 修复版直连Collector日志器创建成功")
-	
+
 	testID := fmt.Sprintf("fixed_direct_test_%d", time.Now().Unix())
-	
+
 	// 发送修复版测试日志
 	logger.Infow("修复版直连Collector测试日志",
 		"test_id", testID,
@@ -49,16 +49,16 @@ func main() {
 
 	logger.Errorw("修复版直连Collector错误日志",
 		"test_id", testID,
-		"level", "error", 
+		"level", "error",
 		"details", "测试修复版直连到Collector是否工作",
 		"error_code", "FIXED_DIRECT_TEST_001",
 	)
-	
+
 	fmt.Printf("📤 已直接发送到Collector（修复版），test_id: %s\n", testID)
-	
+
 	// 等待数据传输
 	fmt.Println("等待5秒钟让数据传输和处理...")
 	time.Sleep(5 * time.Second)
-	
+
 	fmt.Println("✅ 修复版直连Collector测试完成")
 }

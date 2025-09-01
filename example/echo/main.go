@@ -28,7 +28,7 @@ func main() {
 		OutputPaths: []string{"stdout"},
 		Development: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Enable if you have an OTLP collector running
+			Enabled:  boolPtr(false),          // Enable if you have an OTLP collector running
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for web service
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -56,7 +56,7 @@ func main() {
 	// Add our unified logger middleware
 	e.Use(EchoLoggerMiddleware(coreLogger))
 	e.Use(EchoRecoveryMiddleware(coreLogger))
-	
+
 	// Add CORS middleware for API access
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -130,7 +130,7 @@ func EchoLoggerMiddleware(logger core.Logger) echo.MiddlewareFunc {
 			statusCode := res.Status
 			clientIP := c.RealIP()
 			userAgent := req.UserAgent()
-			
+
 			// Build log fields
 			logFields := []interface{}{
 				"component", "echo",
@@ -204,11 +204,11 @@ func EchoRecoveryMiddleware(logger core.Logger) echo.MiddlewareFunc {
 						"error", r,
 						"panic", true,
 					)
-					
+
 					// Return JSON error response
 					c.JSON(http.StatusInternalServerError, map[string]interface{}{
-						"error": "Internal server error",
-						"code":  "PANIC_RECOVERED",
+						"error":     "Internal server error",
+						"code":      "PANIC_RECOVERED",
 						"timestamp": time.Now().Format(time.RFC3339),
 					})
 				}
@@ -232,20 +232,20 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 
 	// API group with prefix
 	api := e.Group("/api")
-	
+
 	// Product routes
 	products := api.Group("/products")
 	{
 		// Get product by ID
 		products.GET("/:id", func(c echo.Context) error {
 			productID := c.Param("id")
-			
+
 			// Simulate product lookup with structured logging
 			logger.Debugw("Looking up product", "product_id", productID, "operation", "get_product")
-			
+
 			// Simulate some processing time
 			time.Sleep(30 * time.Millisecond)
-			
+
 			// Check if product ID is valid (for demo purposes)
 			if id, err := strconv.Atoi(productID); err != nil || id <= 0 {
 				logger.Warnw("Invalid product ID requested", "product_id", productID, "error", "invalid_format")
@@ -253,8 +253,8 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 			}
 
 			// Set context for middleware logging
-			c.Set("user_id", "demo_user_" + productID)
-			
+			c.Set("user_id", "demo_user_"+productID)
+
 			logger.Infow("Product retrieved successfully", "product_id", productID)
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"id":          productID,
@@ -288,10 +288,10 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 
 			// Simulate product creation
 			productID := strconv.Itoa(int(time.Now().Unix() % 10000))
-			
-			logger.Infow("Product created successfully", 
-				"product_id", productID, 
-				"name", product.Name, 
+
+			logger.Infow("Product created successfully",
+				"product_id", productID,
+				"name", product.Name,
 				"price", product.Price,
 				"category", product.Category,
 				"operation", "create_product")
@@ -309,15 +309,15 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 		// Update product
 		products.PUT("/:id", func(c echo.Context) error {
 			productID := c.Param("id")
-			
+
 			var updates map[string]interface{}
 			if err := c.Bind(&updates); err != nil {
 				logger.Warnw("Invalid product update request", "error", err.Error(), "product_id", productID)
 				return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 			}
 
-			logger.Infow("Product updated successfully", 
-				"product_id", productID, 
+			logger.Infow("Product updated successfully",
+				"product_id", productID,
 				"updates", updates,
 				"operation", "update_product")
 
@@ -332,8 +332,8 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 		// Delete product
 		products.DELETE("/:id", func(c echo.Context) error {
 			productID := c.Param("id")
-			
-			logger.Infow("Product deleted", 
+
+			logger.Infow("Product deleted",
 				"product_id", productID,
 				"operation", "delete_product")
 
@@ -359,7 +359,7 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 	// Metrics endpoint
 	e.GET("/metrics", func(c echo.Context) error {
 		logger.Debugw("Metrics endpoint accessed")
-		
+
 		// Simulate gathering metrics
 		metrics := map[string]interface{}{
 			"requests_total":    12345,
@@ -368,9 +368,9 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 			"error_rate":        "0.2%",
 			"uptime_seconds":    3600,
 		}
-		
+
 		logger.Infow("Metrics retrieved", "metrics", metrics)
-		
+
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"timestamp": time.Now().Format(time.RFC3339),
 			"metrics":   metrics,
@@ -383,19 +383,19 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 		if delay == "" {
 			delay = "2"
 		}
-		
+
 		delayInt, _ := strconv.Atoi(delay)
 		if delayInt <= 0 || delayInt > 10 {
 			delayInt = 2
 		}
-		
+
 		duration := time.Duration(delayInt) * time.Second
-		
+
 		logger.Debugw("Slow endpoint accessed", "expected_delay", duration.String())
-		
+
 		// Simulate slow operation
 		time.Sleep(duration)
-		
+
 		logger.Warnw("Slow operation completed", "operation", "slow_task", "actual_duration", duration.String())
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"message": "This was intentionally slow",
@@ -409,9 +409,9 @@ func setupEchoRoutes(e *echo.Echo, logger core.Logger) {
 		if errorType == "" {
 			errorType = "generic"
 		}
-		
+
 		logger.Errorw("Simulated error endpoint", "error_type", errorType, "test", true)
-		
+
 		switch errorType {
 		case "bad_request":
 			return echo.NewHTTPError(http.StatusBadRequest, "This is a bad request error")

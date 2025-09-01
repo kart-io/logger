@@ -57,7 +57,7 @@ func demonstrateBasicConfiguration() {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Disabled by default - enable if you have an OTLP collector
+			Enabled:  boolPtr(false),          // Disabled by default - enable if you have an OTLP collector
 			Endpoint: "http://127.0.0.1:4317", // gRPC endpoint for configuration demo
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -91,7 +91,7 @@ func demonstrateCommandLineFlags() {
 
 	// Create flag set
 	fs := pflag.NewFlagSet("logger-demo", pflag.ContinueOnError)
-	
+
 	// Create LogOption and add flags
 	opt := option.DefaultLogOption()
 	opt.AddFlags(fs)
@@ -141,7 +141,7 @@ func demonstrateEnvironmentConfigs() {
 		OutputPaths: []string{"stdout"},
 		Development: true,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Usually disabled in development
+			Enabled:  boolPtr(false),          // Usually disabled in development
 			Endpoint: "http://localhost:4317", // Local development collector
 			Protocol: "grpc",
 			Headers: map[string]string{
@@ -172,7 +172,7 @@ func demonstrateEnvironmentConfigs() {
 		OutputPaths: []string{"stdout"},
 		Development: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Can be enabled in staging for testing
+			Enabled:  boolPtr(false),                          // Can be enabled in staging for testing
 			Endpoint: "https://otlp-staging.company.com:4317", // Staging OTLP endpoint
 			Protocol: "grpc",
 			Timeout:  5 * time.Second,
@@ -207,7 +207,7 @@ func demonstrateEnvironmentConfigs() {
 		DisableCaller:     false,
 		DisableStacktrace: false,
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(false), // Enable in production for observability
+			Enabled:  boolPtr(false),                       // Enable in production for observability
 			Endpoint: "https://otlp-prod.company.com:4317", // Production OTLP endpoint
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -337,7 +337,7 @@ func demonstrateLevelConfiguration() {
 
 	for _, level := range levels {
 		fmt.Printf("\n5.%d Testing level: %s\n", getlevelIndex(level)+1, level)
-		
+
 		opt := &option.LogOption{
 			Engine:      "slog",
 			Level:       level,
@@ -361,7 +361,7 @@ func demonstrateLevelConfiguration() {
 
 		// Test all levels to see which ones are visible
 		levelLogger.Debug("DEBUG level message")
-		levelLogger.Info("INFO level message")  
+		levelLogger.Info("INFO level message")
 		levelLogger.Warn("WARN level message")
 		levelLogger.Error("ERROR level message")
 	}

@@ -139,7 +139,6 @@ func (p *LoggerProvider) SendLogRecord(level core.Level, message string, attribu
 		},
 	}
 
-
 	return p.client.Export(context.Background(), req)
 }
 
@@ -277,7 +276,6 @@ func (c *OTLPClient) exportHTTP(ctx context.Context, req *v1.ExportLogsServiceRe
 		// For standard OTLP collectors/agents, use /v1/logs path
 		url = fmt.Sprintf("http://%s/v1/logs", c.endpoint)
 	}
-
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
 	if err != nil {

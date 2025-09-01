@@ -132,7 +132,7 @@ func main() {
 
 	// 6. Demonstrate signal-based reload
 	fmt.Println("\n6. Demonstrating signal-based configuration reload...")
-	
+
 	// Update config file first
 	newConfig3 := &option.LogOption{
 		Engine:      "zap",
@@ -177,7 +177,7 @@ func main() {
 
 	// 9. Demonstrate validation failure
 	fmt.Println("\n9. Demonstrating configuration validation...")
-	
+
 	// Create invalid config (empty engine)
 	invalidConfig := &option.LogOption{
 		Engine: "", // Invalid empty engine
@@ -203,12 +203,12 @@ func logSamples(logger core.Logger, prefix string) {
 	logger.Info("Info message", "prefix", prefix, "level", "info")
 	logger.Warn("Warning message", "prefix", prefix, "level", "warn")
 	logger.Error("Error message", "prefix", prefix, "level", "error")
-	
+
 	logger.Debugf("[%s] Debug formatted message: %d", prefix, 123)
 	logger.Infof("[%s] Info formatted message: %s", prefix, "test")
 	logger.Warnf("[%s] Warning formatted message: %v", prefix, true)
 	logger.Errorf("[%s] Error formatted message: %f", prefix, 3.14)
-	
+
 	logger.Debugw("Debug structured message", "prefix", prefix, "type", "structured", "counter", 1)
 	logger.Infow("Info structured message", "prefix", prefix, "type", "structured", "counter", 2)
 	logger.Warnw("Warning structured message", "prefix", prefix, "type", "structured", "counter", 3)
@@ -223,4 +223,3 @@ func writeConfigFile(filename string, config *option.LogOption) error {
 
 	return os.WriteFile(filename, data, 0644)
 }
-

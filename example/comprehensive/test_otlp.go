@@ -18,7 +18,7 @@ func testOTLPIntegration() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(true), // 启用 OTLP 发送
+			Enabled:  boolPtr(true),    // 启用 OTLP 发送
 			Endpoint: "127.0.0.1:4317", // gRPC 不需要 http:// 前缀
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
@@ -38,7 +38,7 @@ func testOTLPIntegration() {
 	}
 
 	fmt.Println("Testing OTLP gRPC integration...")
-	
+
 	// 发送多条不同级别的日志
 	grpcLogger.Infow("OTLP integration test started",
 		"test_id", "otlp-grpc-001",
@@ -48,14 +48,14 @@ func testOTLPIntegration() {
 	)
 
 	grpcLogger.Warnw("OTLP test warning message",
-		"test_id", "otlp-grpc-002", 
+		"test_id", "otlp-grpc-002",
 		"warning_type", "integration_test",
 		"should_appear_in_vlogs", true,
 	)
 
 	grpcLogger.Errorw("OTLP test error message",
 		"test_id", "otlp-grpc-003",
-		"error_type", "simulated_error", 
+		"error_type", "simulated_error",
 		"trace_id", "test-trace-123",
 		"span_id", "test-span-456",
 	)
@@ -63,18 +63,18 @@ func testOTLPIntegration() {
 	// 测试 HTTP 协议到 Agent
 	fmt.Println("\nTesting OTLP HTTP to Agent...")
 	httpOpt := &option.LogOption{
-		Engine:      "slog", 
+		Engine:      "slog",
 		Level:       "DEBUG",
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Enabled:  boolPtr(true), // 启用 OTLP 发送
+			Enabled:  boolPtr(true),                   // 启用 OTLP 发送
 			Endpoint: "http://127.0.0.1:4328/v1/logs", // Agent HTTP 端点
 			Protocol: "http/protobuf",
 			Timeout:  5 * time.Second,
 			Headers: map[string]string{
 				"service.name":    "logger-test-http",
-				"service.version": "1.0.0", 
+				"service.version": "1.0.0",
 				"environment":     "test",
 				"protocol":        "http",
 			},
@@ -94,7 +94,7 @@ func testOTLPIntegration() {
 	)
 
 	httpLogger.Infow("OTLP HTTP test info message",
-		"test_id", "otlp-http-002", 
+		"test_id", "otlp-http-002",
 		"message_level", "info",
 		"expected_in_vlogs", true,
 	)
@@ -102,7 +102,7 @@ func testOTLPIntegration() {
 	// 等待消息发送完成
 	fmt.Println("\nWaiting for OTLP messages to be sent...")
 	time.Sleep(3 * time.Second)
-	
+
 	fmt.Println("OTLP integration test completed!")
 	fmt.Println("Check VictoriaLogs at http://127.0.0.1:9428 for logs")
 	fmt.Println("Search for service.name=\"logger-test\" or test_id=\"otlp-*\"")

@@ -20,7 +20,7 @@ func main() {
 		Format:      "json",
 		OutputPaths: []string{"stdout"},
 		OTLP: &option.OTLPOption{
-			Endpoint: "127.0.0.1:4327",  // Agent
+			Endpoint: "127.0.0.1:4327", // Agent
 			Protocol: "grpc",
 			Timeout:  5 * time.Second,
 		},
@@ -33,9 +33,9 @@ func main() {
 	}
 
 	fmt.Println("✅ Logger创建成功，开始发送简化测试日志...")
-	
+
 	testID := fmt.Sprintf("simple_test_%d", time.Now().Unix())
-	
+
 	// 发送简单的INFO日志
 	logger.Infow("简化测试消息",
 		"test_id", testID,
@@ -47,15 +47,15 @@ func main() {
 	// 发送ERROR日志测试不同级别
 	logger.Errorw("简化错误测试",
 		"test_id", testID,
-		"test_type", "simple_error", 
+		"test_type", "simple_error",
 		"error_code", "SIMPLE_001",
 	)
 
 	fmt.Printf("📤 已发送简化测试日志，test_id: %s\n", testID)
-	
+
 	// 等待传输
 	fmt.Println("等待3秒钟让日志传输...")
 	time.Sleep(3 * time.Second)
-	
+
 	fmt.Println("✅ 简化测试完成")
 }

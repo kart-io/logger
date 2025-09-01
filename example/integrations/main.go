@@ -123,15 +123,15 @@ func demonstrateKratosIntegration(coreLogger core.Logger) {
 
 	// 3. HTTP request logging
 	fmt.Println("\n2.3 HTTP Request Logging:")
-	kratosAdapter.LogRequest("GET", "/api/users", 200, 1500000000, "user_456") // 1.5 seconds
-	kratosAdapter.LogRequest("POST", "/api/users", 201, 2500000000, "user_789") // 2.5 seconds
-	kratosAdapter.LogRequest("GET", "/api/users/999", 404, 100000000, "user_123") // 100ms, not found
+	kratosAdapter.LogRequest("GET", "/api/users", 200, 1500000000, "user_456")     // 1.5 seconds
+	kratosAdapter.LogRequest("POST", "/api/users", 201, 2500000000, "user_789")    // 2.5 seconds
+	kratosAdapter.LogRequest("GET", "/api/users/999", 404, 100000000, "user_123")  // 100ms, not found
 	kratosAdapter.LogRequest("DELETE", "/api/users/1", 500, 5000000000, "admin_1") // 5 seconds, error
 
 	// 4. Middleware logging
 	fmt.Println("\n2.4 Middleware Logging:")
-	kratosAdapter.LogMiddleware("auth-middleware", 5000000)     // 5ms
-	kratosAdapter.LogMiddleware("cors-middleware", 1000000)     // 1ms
+	kratosAdapter.LogMiddleware("auth-middleware", 5000000)        // 5ms
+	kratosAdapter.LogMiddleware("cors-middleware", 1000000)        // 1ms
 	kratosAdapter.LogMiddleware("rate-limit-middleware", 15000000) // 15ms
 
 	// 5. Error logging
