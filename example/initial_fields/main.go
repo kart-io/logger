@@ -49,19 +49,19 @@ func main() {
 
 	// All these log entries will automatically include the InitialFields
 	serviceLogger.Info("Application started")
-	
+
 	serviceLogger.Infow("User action performed",
 		"user_id", "user123",
 		"action", "login",
 		"success", true,
 	)
-	
+
 	serviceLogger.Warnw("Performance warning",
 		"operation", "database_query",
 		"duration_ms", 1500,
 		"threshold_ms", 1000,
 	)
-	
+
 	serviceLogger.Errorw("Connection failed",
 		"target", "redis://localhost:6379",
 		"error", "connection refused",
@@ -69,7 +69,7 @@ func main() {
 	)
 
 	fmt.Println("\n=== Demonstrating field precedence ===")
-	
+
 	// InitialFields < With() < current log call fields
 	childLogger := serviceLogger.With("service.name", "overridden-by-with")
 	childLogger.Infow("Field precedence test",
@@ -78,7 +78,7 @@ func main() {
 	)
 
 	fmt.Println("\n=== Creating a new logger with different InitialFields ===")
-	
+
 	// Create another logger with different initial fields
 	opt2 := option.DefaultLogOption().
 		AddInitialField("service.name", "another-service").

@@ -101,20 +101,20 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 		"service.name":    "unknown",
 		"service.version": "unknown",
 	}
-	
+
 	// Merge user-provided InitialFields, overriding defaults
 	if opt.InitialFields != nil {
 		for key, value := range opt.InitialFields {
 			serviceFields[key] = value
 		}
 	}
-	
+
 	// Add all fields (defaults + user-provided)
 	var initialArgs []interface{}
 	for key, value := range serviceFields {
 		initialArgs = append(initialArgs, slog.Any(key, value))
 	}
-	
+
 	logger = logger.With(initialArgs...)
 
 	// Add basic OTEL fields if OTLP is enabled

@@ -69,25 +69,25 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 
 	// Add initial fields from configuration with default values
 	initialFields := make([]zap.Field, 0)
-	
+
 	// Ensure essential service fields are present with default values if not provided
 	serviceFields := map[string]interface{}{
 		"service.name":    "unknown",
 		"service.version": "unknown",
 	}
-	
+
 	// Merge user-provided InitialFields, overriding defaults
 	if opt.InitialFields != nil {
 		for key, value := range opt.InitialFields {
 			serviceFields[key] = value
 		}
 	}
-	
+
 	// Add all fields (defaults + user-provided)
 	for key, value := range serviceFields {
 		initialFields = append(initialFields, zap.Any(key, value))
 	}
-	
+
 	standardizedLogger = standardizedLogger.With(initialFields...)
 
 	// Add basic OTEL fields if OTLP is enabled

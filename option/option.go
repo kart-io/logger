@@ -45,12 +45,12 @@ type LogOption struct {
 // ServiceName and ServiceVersion are handled via -ldflags during build time
 // using the github.com/kart-io/version package.
 type OTLPOption struct {
-	Enabled        *bool             `json:"enabled" mapstructure:"enabled"`
-	Endpoint       string            `json:"endpoint" mapstructure:"endpoint"`
-	Protocol       string            `json:"protocol" mapstructure:"protocol"`
-	Timeout        time.Duration     `json:"timeout" mapstructure:"timeout"`
-	Headers        map[string]string `json:"headers" mapstructure:"headers"`
-	Insecure       bool              `json:"insecure" mapstructure:"insecure"`
+	Enabled  *bool             `json:"enabled" mapstructure:"enabled"`
+	Endpoint string            `json:"endpoint" mapstructure:"endpoint"`
+	Protocol string            `json:"protocol" mapstructure:"protocol"`
+	Timeout  time.Duration     `json:"timeout" mapstructure:"timeout"`
+	Headers  map[string]string `json:"headers" mapstructure:"headers"`
+	Insecure bool              `json:"insecure" mapstructure:"insecure"`
 }
 
 // DefaultLogOption returns a configuration with sensible defaults.
@@ -176,11 +176,11 @@ func (opt *LogOption) WithInitialFields(fields map[string]interface{}) *LogOptio
 	if opt.InitialFields == nil {
 		opt.InitialFields = make(map[string]interface{})
 	}
-	
+
 	for key, value := range fields {
 		opt.InitialFields[key] = value
 	}
-	
+
 	return opt
 }
 
@@ -190,7 +190,7 @@ func (opt *LogOption) AddInitialField(key string, value interface{}) *LogOption 
 	if opt.InitialFields == nil {
 		opt.InitialFields = make(map[string]interface{})
 	}
-	
+
 	opt.InitialFields[key] = value
 	return opt
 }
@@ -201,12 +201,12 @@ func (opt *LogOption) GetInitialFields() map[string]interface{} {
 	if opt.InitialFields == nil {
 		return make(map[string]interface{})
 	}
-	
+
 	// Return a copy to prevent external modification
 	fields := make(map[string]interface{})
 	for key, value := range opt.InitialFields {
 		fields[key] = value
 	}
-	
+
 	return fields
 }
