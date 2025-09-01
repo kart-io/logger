@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 这是一个 Go 日志库项目 (`github.com/kart-io/logger`)，旨在提供智能 OTLP 配置、多源配置管理，以及跨 GORM、Kratos 等框架的统一日志记录。
 
-**当前状态**：项目已初始化 Go module (Go 1.25.0)，核心接口和引擎实现已完成。项目包含完整的双引擎架构、字段标准化系统、配置管理和 OTLP 集成。提供了丰富的使用示例和测试代码。
+**当前状态**：项目已初始化 Go module (Go 1.23.0)，核心接口和引擎实现已完成。项目包含完整的双引擎架构、字段标准化系统、配置管理和 OTLP 集成。提供了丰富的使用示例和测试代码。
 
 **核心依赖**：项目基于 Go 标准库 `log/slog` 和高性能日志库 `go.uber.org/zap` 构建，提供统一的日志接口。
 
@@ -62,7 +62,7 @@ go fmt ./...
 go vet ./...
 
 # 检查 Go 版本兼容性
-go mod tidy -go=1.25
+go mod tidy -go=1.23
 
 # 运行示例（了解项目功能）
 cd example/comprehensive && go run main.go
@@ -114,8 +114,7 @@ cd otlp-docker && ./deploy.sh
 - **`fields/`**: 统一字段定义包，标准化所有日志字段名称和格式
 - **`engines/zap/`**: Zap 日志引擎实现，严格遵循统一字段标准
 - **`engines/slog/`**: Slog 日志引擎实现，严格遵循统一字段标准
-- **`factory/`**: 日志器工厂，根据配置创建具体的引擎实例
-- **`config/`**: 配置管理包，处理多源配置冲突和优先级
+- **`factory/`**: 日志器工厂包，处理多源配置冲突和优先级，创建日志器实例
 - **`otlp/`**: OTLP 集成包，智能检测和自动配置
 - **`option/`**: 配置选项包，提供详细的配置验证和标志绑定
 - **`example/`**: 完整的使用示例，包含性能测试和 OTLP 集成演示
@@ -209,9 +208,51 @@ cd otlp-docker && ./deploy.sh
 - **`example/configuration/`**: 配置管理演示，展示多源配置处理
 - **`otlp-docker/`**: 完整的 OTLP 测试环境，包含 Docker Compose 配置
 
+## 核心文件路径
+
+关键文件位置，便于快速定位：
+
+- **主入口**: `logger.go` - 全局日志器和包级便利函数
+- **核心接口**: `core/logger.go` - Logger 接口定义
+- **工厂实现**: `factory/logger_factory.go` - 日志器创建逻辑
+- **配置选项**: `option/log_option.go` - 配置结构和验证
+- **Zap 引擎**: `engines/zap/zap_logger.go` - Zap 实现
+- **Slog 引擎**: `engines/slog/slog_logger.go` - Slog 实现
+- **字段标准**: `fields/` - 统一字段定义
+- **OTLP 集成**: `otlp/exporter.go` - OpenTelemetry 导出器
+- **需求文档**: `docs/REQUIREMENTS.md` - 详细的中文需求文档
+
+## 测试和验证
+
+运行特定测试的命令：
+
+```bash
+# 测试特定包
+go test ./core
+go test ./engines/zap
+go test ./engines/slog
+
+# 测试特定功能
+go test -run TestLoggerFactory ./factory
+go test -run TestOTLP ./otlp
+
+# 性能测试
+go test -bench=BenchmarkZap ./engines/zap
+go test -bench=BenchmarkSlog ./engines/slog
+
+# 运行完整基准测试套件
+cd example/performance && go run main.go
+```
+
 ## 快捷备忘录
 
 使用 `# <重要信息>` 格式添加到此处：
+
+# 关键模块: core.Logger 接口是所有引擎的统一入口点
+# 字段标准: 所有引擎必须输出完全一致的字段格式
+# 性能目标: Zap 引擎零分配，Slog 引擎最小分配
+# 配置约定: 支持扁平化(otlp-endpoint)和嵌套(otlp.endpoint)两种配置风格
+# OTLP 逻辑: 有端点即启用，无需显式 enabled: true
 
 <!--
 快速添加格式示例：

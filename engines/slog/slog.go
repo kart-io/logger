@@ -393,11 +393,6 @@ func formatArgs(args ...interface{}) string {
 	return strings.Join(parts, " ")
 }
 
-func formatToSlogArgs(args ...interface{}) []interface{} {
-	// For printf-style formatting, we don't need to convert to slog.Attr
-	return args
-}
-
 func anyToString(v interface{}) string {
 	if v == nil {
 		return "<nil>"

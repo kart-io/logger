@@ -396,11 +396,3 @@ func (p *LoggerProvider) ForceFlush(ctx context.Context) error {
 	// Since we're sending logs synchronously, no need to flush
 	return nil
 }
-
-// getServiceVersion returns the service version with fallback
-func getServiceVersion(version string) string {
-	if version == "" {
-		return "1.0.0" // fallback
-	}
-	return version
-}

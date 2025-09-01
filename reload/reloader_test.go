@@ -583,7 +583,7 @@ func TestConfigReloader_ConcurrentAccess(t *testing.T) {
 	// Concurrent reloads
 	for i := 0; i < numGoroutines/2; i++ {
 		wg.Add(1)
-		go func(id int) {
+		go func() {
 			defer wg.Done()
 			for j := 0; j < numOperations/5; j++ {
 				newCfg := &option.LogOption{
@@ -594,7 +594,7 @@ func TestConfigReloader_ConcurrentAccess(t *testing.T) {
 				reloader.TriggerReload(newCfg)
 				time.Sleep(10 * time.Millisecond)
 			}
-		}(i)
+		}()
 	}
 
 	wg.Wait()

@@ -61,8 +61,8 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 		return nil, err
 	}
 
-	// Create standardized field mapper wrapper
-	standardizedLogger := newStandardizedZapLogger(zapLogger, fields.NewFieldMapper())
+	// Use the zapLogger directly as field standardization is handled in EncoderConfig
+	standardizedLogger := zapLogger
 
 	// Add engine identifier as a persistent field
 	standardizedLogger = standardizedLogger.With(zap.String("engine", "zap"))
@@ -443,20 +443,6 @@ func normalizeOutputPaths(paths []string) []string {
 		}
 	}
 	return normalized
-}
-
-// standardizedZapLogger wraps zap.Logger to ensure field standardization
-type standardizedZapLogger struct {
-	*zap.Logger
-	mapper *fields.FieldMapper
-}
-
-func newStandardizedZapLogger(logger *zap.Logger, mapper *fields.FieldMapper) *zap.Logger {
-	// For now, return the original logger as Zap's field standardization
-	// is handled through the EncoderConfig and our With() method
-	// The real standardization happens in the ZapLogger.standardizeFields method
-	_ = mapper // Silence unused warning
-	return logger
 }
 
 // sendToOTLP sends log data to OTLP as a log record.
