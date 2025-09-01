@@ -3,7 +3,7 @@ package zap
 import (
 	"context"
 	"fmt"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 
 	"go.uber.org/zap"
@@ -13,16 +13,18 @@ import (
 	"github.com/kart-io/logger/fields"
 	"github.com/kart-io/logger/option"
 	"github.com/kart-io/logger/otlp"
+	"github.com/kart-io/logger/runtime"
 )
 
 // ZapLogger implements the core.Logger interface using Uber's Zap library.
 type ZapLogger struct {
-	logger       *zap.Logger
-	sugar        *zap.SugaredLogger
-	level        core.Level
-	mapper       *fields.FieldMapper
-	callerSkip   int
-	otlpProvider *otlp.LoggerProvider
+	logger           *zap.Logger
+	sugar            *zap.SugaredLogger
+	level            core.Level
+	mapper           *fields.FieldMapper
+	callerSkip       int
+	otlpProvider     *otlp.LoggerProvider
+	persistentFields map[string]interface{} // Fields added via With()
 }
 
 // NewZapLogger creates a new Zap-based logger with the provided configuration.
@@ -64,13 +66,48 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 	// Add engine identifier as a persistent field
 	standardizedLogger = standardizedLogger.With(zap.String("engine", "zap"))
 
+	// Add OTEL fields if OTLP is enabled
+	if otlpProvider != nil {
+		// Use configured service name from OTLP config, fallback to default
+		serviceName := opt.OTLP.ServiceName
+		if serviceName == "" {
+			serviceName = "kart-io-service"
+		}
+
+		// Get pod/container/hostname based on deployment environment
+		podName := runtime.GetPodName(serviceName)
+
+		// Build base fields
+		serviceVersion := opt.OTLP.ServiceVersion
+		if serviceVersion == "" {
+			serviceVersion = "1.0.0" // fallback
+		}
+
+		fields := []zap.Field{
+			zap.String("service.name", serviceName),
+			zap.String("service.version", serviceVersion),
+			zap.String("pod", podName),
+			zap.String("job", "kart-io-logger"),
+		}
+
+		// Add namespace if running in Kubernetes
+		if runtime.IsKubernetes() {
+			if namespace := runtime.GetNamespace(); namespace != "" {
+				fields = append(fields, zap.String("ns", namespace))
+			}
+		}
+
+		standardizedLogger = standardizedLogger.With(fields...)
+	}
+
 	return &ZapLogger{
-		logger:       standardizedLogger,
-		sugar:        standardizedLogger.Sugar(),
-		level:        level,
-		mapper:       fields.NewFieldMapper(),
-		callerSkip:   0,
-		otlpProvider: otlpProvider,
+		logger:           standardizedLogger,
+		sugar:            standardizedLogger.Sugar(),
+		level:            level,
+		mapper:           fields.NewFieldMapper(),
+		callerSkip:       0,
+		otlpProvider:     otlpProvider,
+		persistentFields: make(map[string]interface{}),
 	}, nil
 }
 
@@ -174,13 +211,29 @@ func (l *ZapLogger) With(keysAndValues ...interface{}) core.Logger {
 	standardizedFields := l.standardizeFields(keysAndValues...)
 	newSugar := l.sugar.With(standardizedFields...)
 
+	// Merge persistent fields
+	newPersistentFields := make(map[string]interface{})
+	// Copy existing persistent fields
+	for k, v := range l.persistentFields {
+		newPersistentFields[k] = v
+	}
+	// Add new fields
+	for i := 0; i < len(keysAndValues); i += 2 {
+		if i+1 < len(keysAndValues) {
+			key := anyToString(keysAndValues[i])
+			standardKey := l.getStandardFieldName(key)
+			newPersistentFields[standardKey] = keysAndValues[i+1]
+		}
+	}
+
 	return &ZapLogger{
-		logger:       newSugar.Desugar(),
-		sugar:        newSugar,
-		level:        l.level,
-		mapper:       l.mapper,
-		callerSkip:   l.callerSkip,
-		otlpProvider: l.otlpProvider, // Preserve OTLP provider
+		logger:           newSugar.Desugar(),
+		sugar:            newSugar,
+		level:            l.level,
+		mapper:           l.mapper,
+		callerSkip:       l.callerSkip,
+		otlpProvider:     l.otlpProvider,
+		persistentFields: newPersistentFields,
 	}
 }
 
@@ -195,12 +248,13 @@ func (l *ZapLogger) WithCallerSkip(skip int) core.Logger {
 	newLogger := l.logger.WithOptions(zap.AddCallerSkip(skip))
 
 	return &ZapLogger{
-		logger:       newLogger,
-		sugar:        newLogger.Sugar(),
-		level:        l.level,
-		mapper:       l.mapper,
-		callerSkip:   l.callerSkip + skip,
-		otlpProvider: l.otlpProvider, // Preserve OTLP provider
+		logger:           newLogger,
+		sugar:            newLogger.Sugar(),
+		level:            l.level,
+		mapper:           l.mapper,
+		callerSkip:       l.callerSkip + skip,
+		otlpProvider:     l.otlpProvider,
+		persistentFields: l.persistentFields, // Preserve persistent fields
 	}
 }
 
@@ -208,11 +262,11 @@ func (l *ZapLogger) WithCallerSkip(skip int) core.Logger {
 func (l *ZapLogger) withDynamicCallerSkip() core.Logger {
 	// Check if this is a call through global logger function
 	var pcs [10]uintptr
-	n := runtime.Callers(1, pcs[:])
+	n := goruntime.Callers(1, pcs[:])
 	hasGlobalCall := false
 
 	if n > 0 {
-		fs := runtime.CallersFrames(pcs[:n])
+		fs := goruntime.CallersFrames(pcs[:n])
 		for i := 0; i < n; i++ {
 			if f, more := fs.Next(); more || i == n-1 {
 				if strings.Contains(f.File, "github.com/kart-io/logger/logger.go") {
@@ -401,6 +455,12 @@ func (l *ZapLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...in
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
 
+	// First, add persistent fields from With()
+	for k, v := range l.persistentFields {
+		attributes[k] = v
+	}
+
+	// Then add current call fields (these override persistent fields if same key)
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			break

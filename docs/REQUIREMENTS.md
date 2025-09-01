@@ -64,16 +64,16 @@ log:
 
 **状态转换逻辑**：
 ```
-配置检查 → 用户明确设置? 
+配置检查 → 用户明确设置?
 ├─ 是: enabled: false → "禁用"
-├─ 是: enabled: true + 配置完整 → "启用" 
+├─ 是: enabled: true + 配置完整 → "启用"
 ├─ 是: enabled: true + 配置不完整 → "未启用" + 错误日志
 └─ 否: 智能判断 → "自动禁用" 或 "智能启用"
 ```
 
 **在代码和日志中的表达**：
 - ✅ 正确：`OTLP disabled by user configuration (enabled: false)`
-- ✅ 正确：`OTLP not enabled due to missing endpoint`  
+- ✅ 正确：`OTLP not enabled due to missing endpoint`
 - ✅ 正确：`OTLP auto disabled (no configuration provided)`
 - ❌ 避免：混用"禁用"和"未启用"来描述同一状态
 
@@ -206,30 +206,30 @@ function validateOTLPConfig(enabled, endpoint) {
         logError("OTLP configuration error: enabled=true but 'endpoint' is empty or missing")
         logError("Please provide a valid endpoint (e.g., 'otlp-endpoint: \"127.0.0.1:4327\"') or set 'enabled: false'")
         logInfo("OTLP will be disabled until valid endpoint is provided")
-        
-        return { 
-            status: "disabled", 
+
+        return {
+            status: "disabled",
             error: "missing_endpoint",
             userAction: "provide_valid_endpoint",
-            suggestion: "otlp-endpoint: \"127.0.0.1:4327\"" 
+            suggestion: "otlp-endpoint: \"127.0.0.1:4327\""
         }
     }
-    
+
     // 2. 明确禁用 → 尊重用户选择
     if (enabled === false) {
         return { status: "disabled", reason: "explicitly_disabled" }
     }
-    
+
     // 3. 未明确设置 + 端点为空 → 自动禁用
     if (enabled === undefined && isEmpty(endpoint)) {
         return { status: "disabled", reason: "auto_disabled" }
     }
-    
+
     // 4. 未明确设置 + 端点有效 → 智能启用
     if (enabled === undefined && !isEmpty(endpoint)) {
         return { status: "enabled", reason: "auto_enabled" }
     }
-    
+
     // 5. 明确启用 + 端点有效 → 正常启用
     return { status: "enabled", reason: "explicitly_enabled" }
 }
@@ -258,30 +258,30 @@ function validateOTLPConfig(enabled, endpoint) {
 ```javascript
 function handleConfigReload(apiConfig, envVars, fileConfig) {
     const beforeReload = getCurrentEffectiveConfig()
-    
+
     // 1. 执行reload（环境变量优先级最高）
     const afterReload = applyPriorityRules(envVars, apiConfig, fileConfig)
-    
+
     // 2. 检测API配置被环境变量覆盖的情况
     const apiOverridden = detectAPIConfigOverridden(beforeReload, afterReload, envVars)
-    
+
     if (apiOverridden.length > 0) {
         // 3. 明确告知用户这是设计预期
         logWarn("🔄 Config reload completed - Environment variables override API settings")
         logInfo("This is expected behavior: Environment variables always have highest priority")
-        
+
         for (const field of apiOverridden) {
             logWarn(`Field '${field}' API setting overridden by environment variable`)
             logInfo(`  API value: ${beforeReload[field]} → ENV value: ${afterReload[field]}`)
             logInfo(`  To persist API changes, remove ENV variable: unset ${getEnvVarName(field)}`)
         }
     }
-    
+
     // 4. 提供解决方案提示
     logInfo("💡 To make API changes persistent across reloads:")
     logInfo("   1. Remove conflicting environment variables, OR")
     logInfo("   2. Update environment variables to match desired values")
-    
+
     return afterReload
 }
 ```
@@ -320,10 +320,10 @@ kill -HUP $PID
 
 # 5. 用户困惑：为什么API配置"失效"了？
 # 当前生效：log.level = "error" (from ENV - 覆盖了API设置)
-# 
+#
 # 系统日志会记录：
 # WARN: Config reload completed - Environment variables override API settings
-# WARN: Field 'log.level' API setting overridden by environment variable  
+# WARN: Field 'log.level' API setting overridden by environment variable
 # INFO:   API value: debug → ENV value: error
 # INFO:   To persist API changes, remove ENV variable: unset LOG_LEVEL
 ```
@@ -418,10 +418,10 @@ class ConfigUpdateDebouncer {
         this.debounceWindow = 3000 // 3秒防抖窗口
         this.timers = new Map()
     }
-    
+
     handleConfigUpdate(source, config, timestamp) {
         const key = this.getUpdateKey(config)
-        
+
         // 1. 记录本次更新事件
         if (!this.pendingUpdates.has(key)) {
             this.pendingUpdates.set(key, [])
@@ -429,30 +429,30 @@ class ConfigUpdateDebouncer {
         this.pendingUpdates.get(key).push({
             source, config, timestamp
         })
-        
+
         // 2. 清除之前的防抖定时器
         if (this.timers.has(key)) {
             clearTimeout(this.timers.get(key))
         }
-        
+
         // 3. 设置新的防抖定时器
         this.timers.set(key, setTimeout(() => {
             this.processQueuedUpdates(key)
         }, this.debounceWindow))
-        
+
         logDebug(`Config update queued: ${source} at ${timestamp}, will process in ${this.debounceWindow}ms`)
     }
-    
+
     processQueuedUpdates(key) {
         const events = this.pendingUpdates.get(key) || []
         if (events.length === 0) return
-        
+
         logInfo(`Processing ${events.length} queued config updates for ${key}`)
-        
+
         // 4. 按时间戳排序，以最后事件为准
         const sortedEvents = events.sort((a, b) => b.timestamp - a.timestamp)
         const winningEvent = sortedEvents[0]
-        
+
         // 5. 检查是否需要优先级兜底（完全同时的情况）
         const sameTimestampEvents = events.filter(e => e.timestamp === winningEvent.timestamp)
         if (sameTimestampEvents.length > 1) {
@@ -460,14 +460,14 @@ class ConfigUpdateDebouncer {
             const priorityOrder = { 'env': 3, 'api': 2, 'file': 1, 'config_center': 0 }
             const priorityWinner = sameTimestampEvents
                 .sort((a, b) => (priorityOrder[b.source] || 0) - (priorityOrder[a.source] || 0))[0]
-            
+
             logWarn(`Simultaneous updates detected, using priority-based winner: ${priorityWinner.source}`)
             this.applyConfig(priorityWinner)
         } else {
             logInfo(`Applying latest update: ${winningEvent.source} at ${winningEvent.timestamp}`)
             this.applyConfig(winningEvent)
         }
-        
+
         // 6. 清理
         this.pendingUpdates.delete(key)
         this.timers.delete(key)
@@ -484,14 +484,14 @@ class ConfigUpdateDebouncer {
 14:30:02.800 - 环境变量重载: LOG_LEVEL = "error"
 # 决策：等待3秒防抖窗口，最终应用 LOG_LEVEL = "error"（最后+最高优先级）
 
-# 场景2：长时间间隔更新（正常处理）  
+# 场景2：长时间间隔更新（正常处理）
 14:30:00.000 - API配置更新: log.level = "debug"
-14:30:05.000 - 文件监听触发: log.level = "info"  
+14:30:05.000 - 文件监听触发: log.level = "info"
 # 决策：立即处理文件更新，应用 log.level = "info"
 
 # 场景3：完全同时更新（优先级兜底）
 14:30:00.123 - API: log.level = "debug"
-14:30:00.123 - ENV: LOG_LEVEL = "error"  
+14:30:00.123 - ENV: LOG_LEVEL = "error"
 14:30:00.123 - FILE: log.level = "info"
 # 决策：同一毫秒，按优先级 env > api > file，应用 LOG_LEVEL = "error"
 ```
@@ -503,10 +503,10 @@ function resolveMultiSourceConflict(events, currentTime) {
     // 1. 事件驱动优先：按时间戳排序
     const sortedEvents = events.sort((a, b) => b.timestamp - a.timestamp)
     const latestEvent = sortedEvents[0]
-    
+
     logInfo(`Multi-source conflict detected: ${events.length} simultaneous events`)
     logInfo(`Latest event: ${latestEvent.source} at ${latestEvent.timestamp}`)
-    
+
     // 2. 验证最新事件的配置源是否可用
     if (validateConfigSource(latestEvent.source, latestEvent.config)) {
         return {
@@ -516,7 +516,7 @@ function resolveMultiSourceConflict(events, currentTime) {
             timestamp: latestEvent.timestamp
         }
     }
-    
+
     // 3. 最新配置源失效，按优先级查找可用源
     const priorityOrder = ['env', 'api', 'config_center', 'file', 'default']
     for (const source of priorityOrder) {
@@ -531,7 +531,7 @@ function resolveMultiSourceConflict(events, currentTime) {
             }
         }
     }
-    
+
     // 4. 所有源都失效，启用安全默认配置
     return {
         winner: "default",
@@ -696,13 +696,13 @@ function findLastStableConfig() {
         getCurrentFileConfig(),           // 配置文件
         getSystemDefaultConfig()          // 系统默认
     ]
-    
+
     for config in candidates {
         if validateConfig(config) && !isFailedBefore(config) {
             return config
         }
     }
-    
+
     return getSystemDefaultConfig()  // 最终兜底
 }
 ```
@@ -734,29 +734,29 @@ function detectConfigFailureType(config, error) {
             message: `Configuration parsing failed: ${error.message}`
         }
     }
-    
+
     // 2. 配置验证错误（立即回滚）
     if (error.type === 'VALIDATION_ERROR') {
         return {
             shouldRollback: true,
-            severity: 'HIGH', 
+            severity: 'HIGH',
             reason: 'config_validation_failed',
             action: 'immediate_rollback',
             message: `Invalid configuration: ${error.field} = ${error.value}`
         }
     }
-    
+
     // 3. 系统初始化失败（立即回滚）
     if (error.type === 'INITIALIZATION_ERROR') {
         return {
             shouldRollback: true,
             severity: 'HIGH',
-            reason: 'system_initialization_failed', 
+            reason: 'system_initialization_failed',
             action: 'rollback_to_safe_config',
             message: `System initialization failed: ${error.message}`
         }
     }
-    
+
     // 4. 运行时连接错误（不回滚）
     if (error.type === 'CONNECTION_ERROR') {
         return {
@@ -767,7 +767,7 @@ function detectConfigFailureType(config, error) {
             message: `Connection failed, will retry: ${error.endpoint}`
         }
     }
-    
+
     // 5. 运行时传输错误（不回滚）
     if (error.type === 'TRANSPORT_ERROR') {
         return {
@@ -811,7 +811,7 @@ log:
 
 # 检测结果：
 error_type: INITIALIZATION_ERROR
-should_rollback: true 
+should_rollback: true
 action: 回滚到仅控制台输出的安全配置
 ```
 
@@ -826,7 +826,7 @@ flowchart TD
     D -->|是| F{初始化成功？}
     F -->|否| G[初始化错误 → 立即回滚]
     F -->|是| H[配置生效]
-    
+
     H --> I{运行时错误？}
     I -->|连接失败| J[记录错误 + 重试，不回滚]
     I -->|传输失败| K[降级处理，不回滚]
@@ -880,7 +880,7 @@ OTLP.Enabled = false  # 环境变量始终最高优先级
 
 ```bash
 # 初始状态层级：
-# 1. 配置文件：log.level = "info" 
+# 1. 配置文件：log.level = "info"
 # 2. API 配置：log.level = "debug"（成功）
 # 3. 环境变量：LOG_LEVEL = "warn"（最高优先级覆盖）
 
@@ -1096,7 +1096,7 @@ log:
 function resolvePresetUserConflict(presetConfig, userConfig, fieldName) {
     const presetValue = presetConfig[fieldName]
     const userValue = userConfig[fieldName]
-    
+
     // 1. 用户未设置此字段 → 使用preset默认值
     if (userValue === undefined || userValue === null) {
         return {
@@ -1105,16 +1105,16 @@ function resolvePresetUserConflict(presetConfig, userConfig, fieldName) {
             source: "preset"
         }
     }
-    
+
     // 2. 用户显式设置了值（包括空字符串）→ 用户意图优先
     if (typeof userValue === 'string' || typeof userValue !== 'undefined') {
         return {
             value: userValue,
-            reason: userValue === "" ? "explicit_disable" : "explicit_override", 
+            reason: userValue === "" ? "explicit_disable" : "explicit_override",
             source: "user_explicit"
         }
     }
-    
+
     // 3. 兜底：使用preset默认值
     return {
         value: presetValue,
@@ -1167,7 +1167,7 @@ user_config:
   output-paths: ["stderr"]  # 用户显式设置
 # 结果：完全替换为 ["stderr"]，不进行合并
 
-# 对象字段合并规则  
+# 对象字段合并规则
 preset_config:
   file-rotation:
     max-size-mb: 100
@@ -1706,7 +1706,7 @@ graph TB
 # 示例1：仅按时间清理，不限制数量和大小（常用于日志归档）
 file-rotation:
   max-size-mb: 0      # 禁用大小轮转
-  max-backups: 0      # 不限制备份数量（可能产生大量文件）  
+  max-backups: 0      # 不限制备份数量（可能产生大量文件）
   max-age-days: 30    # 30天后自动清理
 # 行为：文件可能很大，可能有很多个，但30天后会被清理
 
@@ -1775,14 +1775,14 @@ function handleRotationBoundary(currentSize, maxSizeMB, maxAgeDays, fileCreatedT
         logInfo(`File rotation triggered: size ${currentSize}B >= ${maxSizeMB}MB`)
         return { action: "rotate", reason: "size_limit_reached" }
     }
-    
+
     // 2. 时间边界检查
     if (maxAgeDays === 0) {
         // 0 = 立即清理所有历史文件
         logInfo("Immediate cleanup triggered: max-age-days=0")
         return { action: "cleanup_all", reason: "immediate_cleanup" }
     }
-    
+
     if (maxAgeDays > 0) {
         const ageDays = calculateFileAgeDays(fileCreatedTime, maxAgeDays)
         if (ageDays >= maxAgeDays) {
@@ -1790,7 +1790,7 @@ function handleRotationBoundary(currentSize, maxSizeMB, maxAgeDays, fileCreatedT
             return { action: "cleanup", reason: "age_limit_reached" }
         }
     }
-    
+
     // maxAgeDays < 0 = 禁用时间清理
     return { action: "continue", reason: "within_limits" }
 }
@@ -1813,16 +1813,16 @@ function calculateFileAgeDays(fileCreatedTime, maxAgeDays) {
     const now = Date.now()
     const ageMilliseconds = now - fileCreatedTime
     const ageDays = ageMilliseconds / (24 * 60 * 60 * 1000) // 精确到小时级别
-    
+
     // 详细计算日志（便于调试）
     const createdDate = new Date(fileCreatedTime)
     const currentDate = new Date(now)
-    
+
     logDebug(`File age calculation:`)
     logDebug(`  Created: ${createdDate.toISOString()}`)
     logDebug(`  Current: ${currentDate.toISOString()}`)
     logDebug(`  Age: ${ageDays.toFixed(2)} days (${(ageMilliseconds/3600000).toFixed(1)}h)`)
-    
+
     return ageDays
 }
 
@@ -1830,18 +1830,18 @@ function calculateFileAgeDays(fileCreatedTime, maxAgeDays) {
 function calculateFileAgeNaturalDays(fileCreatedTime, maxAgeDays) {
     const createdDate = new Date(fileCreatedTime)
     const currentDate = new Date()
-    
+
     // 归零到当天开始时间进行比较
     const createdDay = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate())
     const currentDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate())
-    
+
     const ageDays = (currentDay - createdDay) / (24 * 60 * 60 * 1000)
-    
+
     logDebug(`Natural day calculation:`)
     logDebug(`  Created day: ${createdDay.toDateString()}`)
     logDebug(`  Current day: ${currentDay.toDateString()}`)
     logDebug(`  Age: ${ageDays} natural days`)
-    
+
     return ageDays
 }
 ```
@@ -1856,7 +1856,7 @@ function calculateFileAgeNaturalDays(fileCreatedTime, maxAgeDays) {
 max-age-days: 1
 # 结果：未达到1天，不清理
 
-文件创建时间: 2024-08-27 23:59:00  
+文件创建时间: 2024-08-27 23:59:00
 当前时间: 2024-08-28 23:59:01
 精确计算年龄: 24.0003小时 = 1.0001天
 max-age-days: 1
@@ -1864,7 +1864,7 @@ max-age-days: 1
 
 # 场景2：自然日边界（自然日计算）
 文件创建时间: 2024-08-27 23:59:00
-当前时间: 2024-08-28 00:01:00  
+当前时间: 2024-08-28 00:01:00
 自然日年龄: 跨越了一个自然日边界 = 1天
 max-age-days: 1
 # 结果：达到1天，触发清理（仅2分钟后）
@@ -1884,7 +1884,7 @@ file-rotation:
   time-calculation: "exact" # 明确指定精确小时计算
   cleanup-check-interval: "1h"  # 每小时检查一次（避免频繁计算）
 
-# 开发环境配置（快速清理测试）  
+# 开发环境配置（快速清理测试）
 file-rotation:
   max-age-days: 0.25        # 6小时后清理（支持小数）
   time-calculation: "exact"
@@ -1905,7 +1905,7 @@ file-rotation:
 测试时间: 2024-08-28 15:29:59 (23小时59分59秒后)
 预期: ageDays = 0.9999天，不清理
 
-测试时间: 2024-08-28 15:30:01 (24小时1秒后)  
+测试时间: 2024-08-28 15:30:01 (24小时1秒后)
 预期: ageDays = 1.0000天，触发清理
 
 # 测试2：闰年边界
@@ -1923,7 +1923,7 @@ function validateMultiProcessSafety() {
     // ⚠️ 多进程写入警告
     logWarn("File rotation is not guaranteed to be safe with multiple processes")
     logWarn("Recommendation: Use single process manager or external log collector")
-    
+
     return {
         safe: false,
         recommendation: "single_process_management",
@@ -1953,7 +1953,7 @@ log:
   file-rotation:
     max-size-mb: 100               # ⚠️ 多进程同时检测大小
     max-backups: 5                 # ⚠️ 多进程同时管理备份
-    
+
 # 可能的问题场景：
 # 1. 进程A发现文件100MB，开始轮转 app.log → app.log.1
 # 2. 同时进程B也发现100MB，尝试轮转 app.log → app.log.1 (冲突!)
@@ -2035,7 +2035,7 @@ log:
   output-paths: ["logs/app-${PID}.log"]  # 每进程独立文件
   file-rotation:                         # 各进程独立轮转
     max-size-mb: 50
-  # ✅ 优点：无文件冲突，各进程独立管理  
+  # ✅ 优点：无文件冲突，各进程独立管理
   # ❌ 缺点：文件数量多，日志分散
 
 # 策略3：外部日志收集器
@@ -2279,20 +2279,20 @@ function validateConsoleFormat(format, preset) {
         logError("Correct: console-format: 'pretty' OR console-format: 'json'")
         return { valid: false, error: "array_format_not_supported" }
     }
-    
+
     // 2. 检查有效值
     const validFormats = ['pretty', 'json']
     if (format && !validFormats.includes(format)) {
         logError(`Invalid console-format: '${format}'. Must be one of: ${validFormats.join(', ')}`)
         return { valid: false, error: "invalid_format_value" }
     }
-    
+
     // 3. 应用默认值
     const finalFormat = format || getPresetConsoleFormat(preset)
     logInfo(`Console format: ${finalFormat} (${format ? 'user-specified' : 'from-preset'})`)
-    
-    return { 
-        valid: true, 
+
+    return {
+        valid: true,
         format: finalFormat,
         source: format ? 'user' : 'preset'
     }
@@ -2306,7 +2306,7 @@ function validateConsoleFormat(format, preset) {
 log:
   console-format: ["pretty", "json"]  # 无效配置，不支持数组
 
-# ❌ 错误：无效的格式值  
+# ❌ 错误：无效的格式值
 log:
   console-format: "colored"           # 无效值，仅支持 "pretty" 或 "json"
 
@@ -2314,7 +2314,7 @@ log:
 log:
   console-format: "pretty"            # 仅彩色格式
 
-# ✅ 正确：单一格式配置  
+# ✅ 正确：单一格式配置
 log:
   console-format: "json"              # 仅JSON格式
 
@@ -2332,7 +2332,7 @@ log:
 curl -X POST /admin/config -d '{"console-format": "json"}'
 # 结果：控制台输出变为JSON格式，pretty格式停止
 
-# 切换回pretty格式  
+# 切换回pretty格式
 curl -X POST /admin/config -d '{"console-format": "pretty"}'
 # 结果：控制台输出变为彩色格式，JSON格式停止
 ```

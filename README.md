@@ -1,6 +1,6 @@
 # Kart Logger
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.23-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kart-io/logger)](https://goreportcard.com/report/github.com/kart-io/logger)
 
@@ -259,56 +259,56 @@ graph TB
 ```mermaid
 graph TD
     START([配置加载开始])
-    
+
     %% 配置源
     ENV[环境变量]
     API[HTTP API]
     CENTER[配置中心]
     FILE[配置文件]
     DEFAULT[系统默认值]
-    
+
     %% 处理逻辑
     MERGE[配置合并处理器]
     CONFLICT[冲突解决算法]
     OTLP_AUTO[OTLP智能检测]
     VALIDATE[配置验证]
-    
+
     %% 结果
     FINAL[最终配置]
     LOGGER[日志器实例]
-    
+
     START --> ENV
     START --> API
     START --> CENTER
     START --> FILE
     START --> DEFAULT
-    
+
     ENV --> MERGE
     API --> MERGE
     CENTER --> MERGE
     FILE --> MERGE
     DEFAULT --> MERGE
-    
+
     MERGE --> CONFLICT
     CONFLICT --> OTLP_AUTO
     OTLP_AUTO --> VALIDATE
     VALIDATE --> FINAL
     FINAL --> LOGGER
-    
+
     %% 优先级标注
     ENV -.->|优先级: 1| MERGE
     API -.->|优先级: 2| MERGE
     CENTER -.->|优先级: 3| MERGE
     FILE -.->|优先级: 4| MERGE
     DEFAULT -.->|优先级: 5| MERGE
-    
+
     %% 样式
     classDef highPriority fill:#ffcdd2
     classDef mediumPriority fill:#fff9c4
     classDef lowPriority fill:#e8f5e8
     classDef processNode fill:#e1f5fe
     classDef resultNode fill:#f3e5f5
-    
+
     class ENV highPriority
     class API,CENTER mediumPriority
     class FILE,DEFAULT lowPriority
@@ -325,28 +325,28 @@ graph LR
     subgraph "用户代码"
         USER[logger.Info/Infof/Infow]
     end
-    
+
     subgraph "统一接口层"
         INTERFACE[core.Logger Interface]
     end
-    
+
     subgraph "引擎选择"
         FACTORY[factory.LoggerFactory]
     end
-    
+
     subgraph "双引擎实现"
         SLOG_ENGINE[engines/slog]
         ZAP_ENGINE[engines/zap]
     end
-    
+
     subgraph "字段标准化"
         ENCODER[fields.StandardEncoder]
     end
-    
+
     subgraph "统一输出"
         OUTPUT[相同的JSON/Console格式]
     end
-    
+
     USER --> INTERFACE
     INTERFACE --> FACTORY
     FACTORY --> SLOG_ENGINE
@@ -354,13 +354,13 @@ graph LR
     SLOG_ENGINE --> ENCODER
     ZAP_ENGINE --> ENCODER
     ENCODER --> OUTPUT
-    
+
     classDef userCode fill:#e1f5fe
     classDef interface fill:#f3e5f5
     classDef factory fill:#fff3e0
     classDef engine fill:#fce4ec
     classDef output fill:#e8f5e8
-    
+
     class USER userCode
     class INTERFACE interface
     class FACTORY factory

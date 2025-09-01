@@ -29,31 +29,6 @@ processors:
     send_batch_size: 2048
     send_batch_max_size: 4096
 
-  # 资源处理器 - 添加环境标识
-  resource:
-    attributes:
-      - key: otel.component
-        value: "collector"
-        action: upsert
-      - key: collector.version
-        value: "0.132.0"
-        action: upsert
-      - key: deployment.environment
-        value: "production"
-        action: upsert
-      - key: deployment.type
-        value: "docker"
-        action: upsert
-
-  # 属性处理器 - 日志字段标准化
-  attributes/logs:
-    actions:
-      - key: service.name
-        action: upsert
-        value: "kart-io-service"
-      - key: service.version
-        action: upsert
-        value: "1.0.0"
 
   # 过滤器 - 过滤调试日志（生产环境）
   filter/production:
@@ -118,19 +93,19 @@ service:
     # 日志管道 - 处理并导出到VictoriaLogs
     logs:
       receivers: [otlp, filelog]
-      processors: [memory_limiter, resource, attributes/logs, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlphttp/victorialogs, debug]
       
     # 指标管道 - 导出到Prometheus
     metrics:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [memory_limiter, batch]
       exporters: [prometheusremotewrite, debug]
       
     # 追踪管道 - 导出到Jaeger
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
+      processors: [memory_limiter, batch]
       exporters: [otlp/jaeger, debug]
 
   # Collector遥测配置

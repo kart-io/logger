@@ -6,13 +6,14 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"runtime"
+	goruntime "runtime"
 	"strings"
 
 	"github.com/kart-io/logger/core"
 	"github.com/kart-io/logger/fields"
 	"github.com/kart-io/logger/option"
 	"github.com/kart-io/logger/otlp"
+	"github.com/kart-io/logger/runtime"
 )
 
 // SlogLogger implements the core.Logger interface using Go's standard slog library.
@@ -23,6 +24,7 @@ type SlogLogger struct {
 	callerSkip        int
 	disableStacktrace bool
 	otlpProvider      *otlp.LoggerProvider
+	persistentFields  map[string]interface{} // Fields added via With()
 }
 
 // NewSlogLogger creates a new Slog-based logger with the provided configuration.
@@ -88,9 +90,44 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 		mapper:            fields.NewFieldMapper(),
 		disableCaller:     opt.DisableCaller,
 		disableStacktrace: opt.DisableStacktrace,
+		otlpProvider:      otlpProvider,
 	}
 
 	logger := slog.New(standardHandler)
+
+	// Add OTEL fields if OTLP is enabled
+	if otlpProvider != nil {
+		// Use configured service name from OTLP config, fallback to default
+		serviceName := opt.OTLP.ServiceName
+		if serviceName == "" {
+			serviceName = "kart-io-service"
+		}
+
+		// Get pod/container/hostname based on deployment environment
+		podName := runtime.GetPodName(serviceName)
+
+		// Build base fields
+		serviceVersion := opt.OTLP.ServiceVersion
+		if serviceVersion == "" {
+			serviceVersion = "1.0.0" // fallback
+		}
+
+		args := []interface{}{
+			slog.String("service.name", serviceName),
+			slog.String("service.version", serviceVersion),
+			slog.String("pod", podName),
+			slog.String("job", "kart-io-logger"),
+		}
+
+		// Add namespace if running in Kubernetes
+		if runtime.IsKubernetes() {
+			if namespace := runtime.GetNamespace(); namespace != "" {
+				args = append(args, slog.String("ns", namespace))
+			}
+		}
+
+		logger = logger.With(args...)
+	}
 
 	return &SlogLogger{
 		logger:            logger,
@@ -99,6 +136,7 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 		callerSkip:        0,
 		disableStacktrace: opt.DisableStacktrace,
 		otlpProvider:      otlpProvider,
+		persistentFields:  make(map[string]interface{}),
 	}, nil
 }
 
@@ -297,21 +335,14 @@ func (l *SlogLogger) With(keysAndValues ...interface{}) core.Logger {
 		callerSkip:        l.callerSkip,
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
+		persistentFields:  l.mergeWithPersistentFields(keysAndValues...),
 	}
 }
 
 // WithCtx creates a child logger with context and key-value pairs.
 func (l *SlogLogger) WithCtx(ctx context.Context, keysAndValues ...interface{}) core.Logger {
 	// Slog doesn't have a direct equivalent, so we'll create a logger with the fields
-	newLogger := l.logger.With(l.convertToSlogAttrs(keysAndValues...)...)
-	return &SlogLogger{
-		logger:            newLogger,
-		level:             l.level,
-		mapper:            l.mapper,
-		callerSkip:        l.callerSkip,
-		disableStacktrace: l.disableStacktrace,
-		otlpProvider:      l.otlpProvider,
-	}
+	return l.With(keysAndValues...)
 }
 
 // WithCallerSkip creates a child logger that skips additional stack frames.
@@ -323,6 +354,7 @@ func (l *SlogLogger) WithCallerSkip(skip int) core.Logger {
 		callerSkip:        l.callerSkip + skip,
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
+		persistentFields:  l.persistentFields, // Preserve persistent fields
 	}
 }
 
@@ -420,6 +452,21 @@ func mapToSlogLevel(level core.Level) slog.Level {
 	}
 }
 
+func mapSlogLevelToCoreLevel(level slog.Level) core.Level {
+	switch level {
+	case slog.LevelDebug:
+		return core.DebugLevel
+	case slog.LevelInfo:
+		return core.InfoLevel
+	case slog.LevelWarn:
+		return core.WarnLevel
+	case slog.LevelError:
+		return core.ErrorLevel
+	default:
+		return core.InfoLevel
+	}
+}
+
 func createOutputWriters(paths []string) (io.Writer, error) {
 	if len(paths) == 0 {
 		return os.Stdout, nil
@@ -454,6 +501,7 @@ type standardizedHandler struct {
 	mapper            *fields.FieldMapper
 	disableCaller     bool
 	disableStacktrace bool
+	otlpProvider      *otlp.LoggerProvider
 }
 
 func (h *standardizedHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -475,6 +523,9 @@ func (h *standardizedHandler) Handle(ctx context.Context, record slog.Record) er
 		Value: slog.StringValue("slog"),
 	})
 
+	// Collect all attributes for OTLP export (including With() fields)
+	attributes := make(map[string]interface{})
+
 	// Map user-defined fields using our field standardization system
 	record.Attrs(func(attr slog.Attr) bool {
 		standardKey := h.getStandardFieldName(attr.Key)
@@ -482,8 +533,23 @@ func (h *standardizedHandler) Handle(ctx context.Context, record slog.Record) er
 			Key:   standardKey,
 			Value: attr.Value,
 		})
+
+		// Collect for OTLP export
+		attributes[standardKey] = attr.Value.Any()
 		return true
 	})
+
+	// Add engine info to OTLP attributes
+	attributes["engine"] = "slog"
+
+	// Send to OTLP if provider is available
+	if h.otlpProvider != nil {
+		level := mapSlogLevelToCoreLevel(record.Level)
+		if err := h.otlpProvider.SendLogRecord(level, record.Message, attributes); err != nil {
+			// Log the error to stderr without causing recursion
+			fmt.Printf("OTLP export error: %v\n", err)
+		}
+	}
 
 	return h.handler.Handle(ctx, newRecord)
 }
@@ -501,6 +567,7 @@ func (h *standardizedHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		mapper:            h.mapper,
 		disableCaller:     h.disableCaller,
 		disableStacktrace: h.disableStacktrace,
+		otlpProvider:      h.otlpProvider,
 	}
 }
 
@@ -510,6 +577,7 @@ func (h *standardizedHandler) WithGroup(name string) slog.Handler {
 		mapper:            h.mapper,
 		disableCaller:     h.disableCaller,
 		disableStacktrace: h.disableStacktrace,
+		otlpProvider:      h.otlpProvider,
 	}
 }
 
@@ -536,12 +604,12 @@ func (l *SlogLogger) getCaller() string {
 	// Check if this is a call through global logger function
 	// by looking at the call stack
 	var pcs [10]uintptr
-	n := runtime.Callers(1, pcs[:])
+	n := goruntime.Callers(1, pcs[:])
 	if n == 0 {
 		return ""
 	}
 
-	fs := runtime.CallersFrames(pcs[:n])
+	fs := goruntime.CallersFrames(pcs[:n])
 	hasGlobalCall := false
 
 	// Check if there's a global logger function in the call stack
@@ -563,8 +631,8 @@ func (l *SlogLogger) getCaller() string {
 	}
 
 	var pcs2 [1]uintptr
-	if runtime.Callers(skip, pcs2[:]) > 0 {
-		fs2 := runtime.CallersFrames(pcs2[:1])
+	if goruntime.Callers(skip, pcs2[:]) > 0 {
+		fs2 := goruntime.CallersFrames(pcs2[:1])
 		if f, _ := fs2.Next(); f.File != "" {
 			// Extract just the filename from the full path
 			file := f.File
@@ -592,12 +660,12 @@ func (l *SlogLogger) getStacktrace() string {
 	skip := baseSkip + l.callerSkip
 
 	var pcs [10]uintptr
-	n := runtime.Callers(skip, pcs[:])
+	n := goruntime.Callers(skip, pcs[:])
 	if n == 0 {
 		return ""
 	}
 
-	fs := runtime.CallersFrames(pcs[:n])
+	fs := goruntime.CallersFrames(pcs[:n])
 	var stackTrace strings.Builder
 
 	for {
@@ -638,6 +706,12 @@ func (l *SlogLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...i
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
 
+	// First, add persistent fields from With()
+	for k, v := range l.persistentFields {
+		attributes[k] = v
+	}
+
+	// Then add current call fields (these override persistent fields if same key)
 	for i := 0; i < len(keysAndValues); i += 2 {
 		if i+1 >= len(keysAndValues) {
 			break
@@ -656,4 +730,22 @@ func (l *SlogLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...i
 		// Log the error to stderr without causing recursion
 		fmt.Printf("OTLP export error: %v\n", err)
 	}
+}
+
+// mergeWithPersistentFields merges persistent fields with new fields for With() method
+func (l *SlogLogger) mergeWithPersistentFields(keysAndValues ...interface{}) map[string]interface{} {
+	newPersistentFields := make(map[string]interface{})
+	// Copy existing persistent fields
+	for k, v := range l.persistentFields {
+		newPersistentFields[k] = v
+	}
+	// Add new fields
+	for i := 0; i < len(keysAndValues); i += 2 {
+		if i+1 < len(keysAndValues) {
+			key := anyToString(keysAndValues[i])
+			standardKey := l.getStandardFieldName(key)
+			newPersistentFields[standardKey] = keysAndValues[i+1]
+		}
+	}
+	return newPersistentFields
 }

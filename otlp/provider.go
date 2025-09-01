@@ -19,6 +19,7 @@ import (
 
 	"github.com/kart-io/logger/core"
 	"github.com/kart-io/logger/option"
+	"github.com/kart-io/logger/runtime"
 )
 
 // LoggerProvider manages the OTLP logs client for sending logs.
@@ -54,34 +55,57 @@ func NewLoggerProvider(ctx context.Context, opt *option.OTLPOption) (*LoggerProv
 		return nil, fmt.Errorf("failed to create OTLP client: %w", err)
 	}
 
-	// Create resource with VictoriaLogs-compatible attributes
-	resource := &resourcev1.Resource{
-		Attributes: []*commonv1.KeyValue{
-			{
-				Key: "service.name",
-				Value: &commonv1.AnyValue{
-					Value: &commonv1.AnyValue_StringValue{StringValue: "kart-io-logger"},
-				},
-			},
-			{
-				Key: "service.version",
-				Value: &commonv1.AnyValue{
-					Value: &commonv1.AnyValue_StringValue{StringValue: "1.0.0"},
-				},
-			},
-			{
-				Key: "job", // VictoriaLogs stream field
-				Value: &commonv1.AnyValue{
-					Value: &commonv1.AnyValue_StringValue{StringValue: "kart-io-logger"},
-				},
-			},
-			{
-				Key: "instance", // VictoriaLogs stream field
-				Value: &commonv1.AnyValue{
-					Value: &commonv1.AnyValue_StringValue{StringValue: "localhost"},
-				},
+	// Use service name from OTLP config, fallback to default if empty
+	serviceName := opt.ServiceName
+	if serviceName == "" {
+		serviceName = "kart-io-service"
+	}
+
+	// Get pod/container/hostname based on deployment environment
+	podName := runtime.GetPodName(serviceName)
+
+	// Create resource with essential service information only
+	attributes := []*commonv1.KeyValue{
+		{
+			Key: "service.name",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: serviceName},
 			},
 		},
+		{
+			Key: "service.version",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: getServiceVersion(opt.ServiceVersion)},
+			},
+		},
+		{
+			Key: "pod",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: podName},
+			},
+		},
+		{
+			Key: "job",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: "kart-io-logger"},
+			},
+		},
+	}
+
+	// Add namespace if running in Kubernetes
+	if runtime.IsKubernetes() {
+		if namespace := runtime.GetNamespace(); namespace != "" {
+			attributes = append(attributes, &commonv1.KeyValue{
+				Key: "ns",
+				Value: &commonv1.AnyValue{
+					Value: &commonv1.AnyValue_StringValue{StringValue: namespace},
+				},
+			})
+		}
+	}
+
+	resource := &resourcev1.Resource{
+		Attributes: attributes,
 	}
 
 	return &LoggerProvider{
@@ -147,7 +171,29 @@ func (p *LoggerProvider) createLogRecord(level core.Level, message string, attri
 	now := time.Now()
 
 	// Convert attributes to OTLP format with VictoriaLogs-compatible field names
-	otlpAttributes := make([]*commonv1.KeyValue, 0, len(attributes)+3)
+	otlpAttributes := make([]*commonv1.KeyValue, 0, len(attributes)+10)
+
+	// Extract service information from attributes for VictoriaLogs compatibility
+	var serviceName, serviceVersion, instanceName string
+
+	// Try multiple possible service name fields
+	if service, exists := attributes["service"]; exists {
+		serviceName = fmt.Sprintf("%v", service)
+	} else if serviceDotName, exists := attributes["service.name"]; exists {
+		serviceName = fmt.Sprintf("%v", serviceDotName)
+	} else {
+		// Fallback to a default service name if not found
+		serviceName = "kart-io-service"
+	}
+
+	if version, exists := attributes["version"]; exists {
+		serviceVersion = fmt.Sprintf("%v", version)
+	} else if serviceDotVersion, exists := attributes["service.version"]; exists {
+		serviceVersion = fmt.Sprintf("%v", serviceDotVersion)
+	}
+
+	// Get instance name based on deployment environment (same logic as pod name)
+	instanceName = runtime.GetPodName("localhost")
 
 	// Add essential VictoriaLogs fields
 	otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
@@ -170,6 +216,41 @@ func (p *LoggerProvider) createLogRecord(level core.Level, message string, attri
 		Key: "_msg",
 		Value: &commonv1.AnyValue{
 			Value: &commonv1.AnyValue_StringValue{StringValue: message},
+		},
+	})
+
+	// Add service information as attributes (these will appear in the log output)
+	if serviceName != "" {
+		otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
+			Key: "service.name",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: serviceName},
+			},
+		})
+
+		// Also add as job field for VictoriaLogs stream compatibility
+		otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
+			Key: "job",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: serviceName},
+			},
+		})
+	}
+
+	if serviceVersion != "" {
+		otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
+			Key: "service.version",
+			Value: &commonv1.AnyValue{
+				Value: &commonv1.AnyValue_StringValue{StringValue: serviceVersion},
+			},
+		})
+	}
+
+	// Add instance for VictoriaLogs compatibility
+	otlpAttributes = append(otlpAttributes, &commonv1.KeyValue{
+		Key: "instance",
+		Value: &commonv1.AnyValue{
+			Value: &commonv1.AnyValue_StringValue{StringValue: instanceName},
 		},
 	})
 
@@ -331,4 +412,12 @@ func (p *LoggerProvider) Shutdown(ctx context.Context) error {
 func (p *LoggerProvider) ForceFlush(ctx context.Context) error {
 	// Since we're sending logs synchronously, no need to flush
 	return nil
+}
+
+// getServiceVersion returns the service version with fallback
+func getServiceVersion(version string) string {
+	if version == "" {
+		return "1.0.0" // fallback
+	}
+	return version
 }

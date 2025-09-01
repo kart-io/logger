@@ -38,12 +38,14 @@ type LogOption struct {
 
 // OTLPOption contains OTLP-specific configuration.
 type OTLPOption struct {
-	Enabled  *bool             `json:"enabled" mapstructure:"enabled"`
-	Endpoint string            `json:"endpoint" mapstructure:"endpoint"`
-	Protocol string            `json:"protocol" mapstructure:"protocol"`
-	Timeout  time.Duration     `json:"timeout" mapstructure:"timeout"`
-	Headers  map[string]string `json:"headers" mapstructure:"headers"`
-	Insecure bool              `json:"insecure" mapstructure:"insecure"`
+	Enabled        *bool             `json:"enabled" mapstructure:"enabled"`
+	Endpoint       string            `json:"endpoint" mapstructure:"endpoint"`
+	Protocol       string            `json:"protocol" mapstructure:"protocol"`
+	Timeout        time.Duration     `json:"timeout" mapstructure:"timeout"`
+	Headers        map[string]string `json:"headers" mapstructure:"headers"`
+	Insecure       bool              `json:"insecure" mapstructure:"insecure"`
+	ServiceName    string            `json:"service_name" mapstructure:"service_name"`
+	ServiceVersion string            `json:"service_version" mapstructure:"service_version"`
 }
 
 // DefaultLogOption returns a configuration with sensible defaults.
