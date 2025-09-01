@@ -24,6 +24,7 @@ type ZapLogger struct {
 	mapper           *fields.FieldMapper
 	callerSkip       int
 	otlpProvider     *otlp.LoggerProvider
+	initialFields    map[string]interface{} // Fields from InitialFields config
 	persistentFields map[string]interface{} // Fields added via With()
 }
 
@@ -66,26 +67,35 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 	// Add engine identifier as a persistent field
 	standardizedLogger = standardizedLogger.With(zap.String("engine", "zap"))
 
-	// Add OTEL fields if OTLP is enabled
+	// Add initial fields from configuration with default values
+	initialFields := make([]zap.Field, 0)
+	
+	// Ensure essential service fields are present with default values if not provided
+	serviceFields := map[string]interface{}{
+		"service.name":    "unknown",
+		"service.version": "unknown",
+	}
+	
+	// Merge user-provided InitialFields, overriding defaults
+	if opt.InitialFields != nil {
+		for key, value := range opt.InitialFields {
+			serviceFields[key] = value
+		}
+	}
+	
+	// Add all fields (defaults + user-provided)
+	for key, value := range serviceFields {
+		initialFields = append(initialFields, zap.Any(key, value))
+	}
+	
+	standardizedLogger = standardizedLogger.With(initialFields...)
+
+	// Add basic OTEL fields if OTLP is enabled
 	if otlpProvider != nil {
-		// Use configured service name from OTLP config, fallback to default
-		serviceName := opt.OTLP.ServiceName
-		if serviceName == "" {
-			serviceName = "kart-io-service"
-		}
-
 		// Get pod/container/hostname based on deployment environment
-		podName := runtime.GetPodName(serviceName)
-
-		// Build base fields
-		serviceVersion := opt.OTLP.ServiceVersion
-		if serviceVersion == "" {
-			serviceVersion = "1.0.0" // fallback
-		}
+		podName := runtime.GetPodName("kart-io-service")
 
 		fields := []zap.Field{
-			zap.String("service.name", serviceName),
-			zap.String("service.version", serviceVersion),
 			zap.String("pod", podName),
 			zap.String("job", "kart-io-logger"),
 		}
@@ -107,6 +117,7 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 		mapper:           fields.NewFieldMapper(),
 		callerSkip:       0,
 		otlpProvider:     otlpProvider,
+		initialFields:    serviceFields, // Store InitialFields for OTLP export
 		persistentFields: make(map[string]interface{}),
 	}, nil
 }
@@ -233,6 +244,7 @@ func (l *ZapLogger) With(keysAndValues ...interface{}) core.Logger {
 		mapper:           l.mapper,
 		callerSkip:       l.callerSkip,
 		otlpProvider:     l.otlpProvider,
+		initialFields:    l.initialFields, // Copy initialFields to child logger
 		persistentFields: newPersistentFields,
 	}
 }
@@ -254,6 +266,7 @@ func (l *ZapLogger) WithCallerSkip(skip int) core.Logger {
 		mapper:           l.mapper,
 		callerSkip:       l.callerSkip + skip,
 		otlpProvider:     l.otlpProvider,
+		initialFields:    l.initialFields,    // Preserve initial fields
 		persistentFields: l.persistentFields, // Preserve persistent fields
 	}
 }
@@ -455,7 +468,12 @@ func (l *ZapLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...in
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
 
-	// First, add persistent fields from With()
+	// First, add initial fields from logger configuration
+	for k, v := range l.initialFields {
+		attributes[k] = v
+	}
+
+	// Then, add persistent fields from With() (these can override initial fields)
 	for k, v := range l.persistentFields {
 		attributes[k] = v
 	}

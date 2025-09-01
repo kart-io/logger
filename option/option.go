@@ -22,6 +22,11 @@ type LogOption struct {
 	// OutputPaths specifies where logs should be written
 	OutputPaths []string `json:"output_paths" mapstructure:"output_paths"`
 
+	// InitialFields are fields added to every log entry (like service.name, service.version)
+	// These fields are added at logger creation time, not from configuration files
+	// If service.name or service.version are not provided, they default to "unknown"
+	InitialFields map[string]interface{} `json:"-" mapstructure:"-"`
+
 	// OTLP configuration (flattened and nested)
 	OTLPEndpoint string      `json:"otlp_endpoint" mapstructure:"otlp_endpoint"`
 	OTLP         *OTLPOption `json:"otlp" mapstructure:"otlp"`
@@ -37,6 +42,8 @@ type LogOption struct {
 }
 
 // OTLPOption contains OTLP-specific configuration.
+// ServiceName and ServiceVersion are handled via -ldflags during build time
+// using the github.com/kart-io/version package.
 type OTLPOption struct {
 	Enabled        *bool             `json:"enabled" mapstructure:"enabled"`
 	Endpoint       string            `json:"endpoint" mapstructure:"endpoint"`
@@ -44,8 +51,6 @@ type OTLPOption struct {
 	Timeout        time.Duration     `json:"timeout" mapstructure:"timeout"`
 	Headers        map[string]string `json:"headers" mapstructure:"headers"`
 	Insecure       bool              `json:"insecure" mapstructure:"insecure"`
-	ServiceName    string            `json:"service_name" mapstructure:"service_name"`
-	ServiceVersion string            `json:"service_version" mapstructure:"service_version"`
 }
 
 // DefaultLogOption returns a configuration with sensible defaults.
@@ -162,4 +167,46 @@ func (opt *LogOption) IsOTLPEnabled() bool {
 // IsEnabled returns true if OTLP is enabled.
 func (opt *OTLPOption) IsEnabled() bool {
 	return opt != nil && opt.Enabled != nil && *opt.Enabled && opt.Endpoint != ""
+}
+
+// WithInitialFields adds or updates fields in InitialFields map.
+// These fields will be included in every log entry.
+// If InitialFields is nil, it will be initialized.
+func (opt *LogOption) WithInitialFields(fields map[string]interface{}) *LogOption {
+	if opt.InitialFields == nil {
+		opt.InitialFields = make(map[string]interface{})
+	}
+	
+	for key, value := range fields {
+		opt.InitialFields[key] = value
+	}
+	
+	return opt
+}
+
+// AddInitialField adds a single field to InitialFields.
+// If InitialFields is nil, it will be initialized.
+func (opt *LogOption) AddInitialField(key string, value interface{}) *LogOption {
+	if opt.InitialFields == nil {
+		opt.InitialFields = make(map[string]interface{})
+	}
+	
+	opt.InitialFields[key] = value
+	return opt
+}
+
+// GetInitialFields returns a copy of the InitialFields map.
+// Returns empty map if InitialFields is nil.
+func (opt *LogOption) GetInitialFields() map[string]interface{} {
+	if opt.InitialFields == nil {
+		return make(map[string]interface{})
+	}
+	
+	// Return a copy to prevent external modification
+	fields := make(map[string]interface{})
+	for key, value := range opt.InitialFields {
+		fields[key] = value
+	}
+	
+	return fields
 }

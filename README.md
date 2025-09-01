@@ -69,12 +69,19 @@ func main() {
         OTLPEndpoint: "http://localhost:4317",
     }
 
+    // 添加初始字段（会自动包含在每个日志条目中）
+    opt.WithInitialFields(map[string]interface{}{
+        "service.name":    "my-service",
+        "service.version": "v1.0.0",
+        "environment":     "production",
+    }).AddInitialField("instance_id", "web-001")
+
     coreLogger, err := logger.New(opt)
     if err != nil {
         panic(err)
     }
 
-    // 三种调用风格
+    // 三种调用风格（所有日志都会包含上面设置的初始字段）
     coreLogger.Info("简单消息")
     coreLogger.Infof("格式化消息: %s", "hello")
     coreLogger.Infow("结构化消息", "key", "value")
@@ -118,6 +125,135 @@ logger.Errorw("支付处理失败",
     "error", err.Error(),
     "amount", 99.99)
 ```
+
+## 🏷️ 初始字段管理 (InitialFields)
+
+InitialFields 是一个强大的功能，允许你在创建日志器时设置一组字段，这些字段会自动包含在每个日志条目中，无需重复添加。
+
+### 基础用法
+
+```go
+import "github.com/kart-io/logger/option"
+
+// 创建配置并添加初始字段
+opt := option.DefaultLogOption()
+
+// 方法1: 批量添加字段
+opt.WithInitialFields(map[string]interface{}{
+    "service.name":    "user-api",
+    "service.version": "v2.1.0",
+    "environment":     "production",
+})
+
+// 方法2: 逐个添加字段（支持链式调用）
+opt.AddInitialField("datacenter", "us-west-2").
+    AddInitialField("instance_id", "web-003").
+    AddInitialField("team", "platform")
+
+// 方法3: 混合使用
+opt.WithInitialFields(map[string]interface{}{
+    "project": "e-commerce",
+    "component": "payment",
+}).AddInitialField("build_id", "build-12345")
+
+logger, err := logger.New(opt)
+```
+
+### 自动包含示例
+
+```go
+// 设置初始字段
+opt := option.DefaultLogOption()
+opt.WithInitialFields(map[string]interface{}{
+    "service.name": "payment-service",
+    "version": "v1.0.0",
+    "region": "us-east-1",
+})
+
+logger, _ := logger.New(opt)
+
+// 所有日志都会自动包含初始字段
+logger.Info("服务启动")
+// 输出: {"time":"...", "level":"info", "msg":"服务启动", "service.name":"payment-service", "version":"v1.0.0", "region":"us-east-1", ...}
+
+logger.Infow("处理支付请求", 
+    "order_id", "ord-123", 
+    "amount", 99.99)
+// 输出: {"time":"...", "level":"info", "msg":"处理支付请求", "service.name":"payment-service", "version":"v1.0.0", "region":"us-east-1", "order_id":"ord-123", "amount":99.99, ...}
+```
+
+### 字段优先级
+
+InitialFields 具有明确的优先级规则：
+
+```go
+opt := option.DefaultLogOption()
+opt.WithInitialFields(map[string]interface{}{
+    "service.name": "original-service",
+    "environment": "production",
+})
+
+logger, _ := logger.New(opt)
+
+// With() 方法的字段可以覆盖 InitialFields
+childLogger := logger.With("service.name", "child-service")
+
+// 当前日志调用的字段具有最高优先级
+childLogger.Infow("测试优先级",
+    "service.name", "current-call-service",
+    "additional", "data")
+
+// 最终优先级: 当前调用 > With() 方法 > InitialFields
+// 输出中 service.name 将是 "current-call-service"
+```
+
+### 实用场景
+
+**1. 微服务标识**
+```go
+opt.WithInitialFields(map[string]interface{}{
+    "service.name":    "user-service",
+    "service.version": "v1.2.3", 
+    "service.instance": os.Getenv("HOSTNAME"),
+})
+```
+
+**2. 部署环境信息**
+```go
+opt.WithInitialFields(map[string]interface{}{
+    "environment": "production",
+    "datacenter":  "us-west-2",
+    "cluster":     "production-cluster",
+    "namespace":   "default",
+})
+```
+
+**3. 构建和版本信息**
+```go
+opt.WithInitialFields(map[string]interface{}{
+    "build_date":   "2023-12-01T10:30:00Z",
+    "git_commit":   "abc123def456",
+    "git_branch":   "main",
+    "build_number": "1234",
+})
+```
+
+### 获取已配置字段
+
+```go
+// 获取所有初始字段（返回副本，安全访问）
+fields := opt.GetInitialFields()
+for key, value := range fields {
+    fmt.Printf("%s: %v\n", key, value)
+}
+```
+
+### ⚠️ 注意事项
+
+1. **OTLP 兼容**: InitialFields 会自动传递给 OTLP 导出器，确保分布式追踪中的服务标识正确
+2. **内存效率**: 字段在日志器创建时设置，不会在每次日志调用时复制
+3. **类型安全**: 支持任意类型的值，会在输出时自动序列化
+4. **不可变性**: `GetInitialFields()` 返回副本，防止意外修改
 
 ## 🏗️ 项目架构
 
@@ -479,11 +615,12 @@ userLogger.Warn("权限检查失败")
 
 ## 📖 使用示例
 
-项目包含 12+ 个完整的使用示例，每个示例都是独立的 Go 模块：
+项目包含 13+ 个完整的使用示例，每个示例都是独立的 Go 模块：
 
 - [📋 **comprehensive**](example/comprehensive/) - 完整功能演示
 - [⚡ **performance**](example/performance/) - 性能对比测试
 - [🔧 **configuration**](example/configuration/) - 配置管理示例
+- [🏷️ **initial_fields**](example/initial_fields/) - InitialFields 方法使用演示
 - [📡 **otlp**](example/otlp/) - OpenTelemetry 集成
 - [🔄 **reload**](example/reload/) - 动态配置重载
 - [🌐 **echo**](example/echo/) - Echo 框架集成
@@ -495,6 +632,9 @@ userLogger.Warn("权限检查失败")
 ```bash
 # 综合功能演示
 cd example/comprehensive && go run main.go
+
+# InitialFields 使用演示
+cd example/initial_fields && go run main.go
 
 # Web 框架集成
 cd example/echo && go run main.go    # http://localhost:8081

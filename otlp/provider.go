@@ -55,29 +55,12 @@ func NewLoggerProvider(ctx context.Context, opt *option.OTLPOption) (*LoggerProv
 		return nil, fmt.Errorf("failed to create OTLP client: %w", err)
 	}
 
-	// Use service name from OTLP config, fallback to default if empty
-	serviceName := opt.ServiceName
-	if serviceName == "" {
-		serviceName = "kart-io-service"
-	}
-
 	// Get pod/container/hostname based on deployment environment
-	podName := runtime.GetPodName(serviceName)
+	podName := runtime.GetPodName("kart-io-service")
 
-	// Create resource with essential service information only
+	// Create resource with basic infrastructure information only
+	// Service info will be added from log attributes when available
 	attributes := []*commonv1.KeyValue{
-		{
-			Key: "service.name",
-			Value: &commonv1.AnyValue{
-				Value: &commonv1.AnyValue_StringValue{StringValue: serviceName},
-			},
-		},
-		{
-			Key: "service.version",
-			Value: &commonv1.AnyValue{
-				Value: &commonv1.AnyValue_StringValue{StringValue: getServiceVersion(opt.ServiceVersion)},
-			},
-		},
 		{
 			Key: "pod",
 			Value: &commonv1.AnyValue{

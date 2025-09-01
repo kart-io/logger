@@ -24,6 +24,7 @@ type SlogLogger struct {
 	callerSkip        int
 	disableStacktrace bool
 	otlpProvider      *otlp.LoggerProvider
+	initialFields     map[string]interface{} // Fields from InitialFields config
 	persistentFields  map[string]interface{} // Fields added via With()
 }
 
@@ -95,26 +96,33 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 
 	logger := slog.New(standardHandler)
 
-	// Add OTEL fields if OTLP is enabled
+	// Add initial fields from configuration with default values
+	serviceFields := map[string]interface{}{
+		"service.name":    "unknown",
+		"service.version": "unknown",
+	}
+	
+	// Merge user-provided InitialFields, overriding defaults
+	if opt.InitialFields != nil {
+		for key, value := range opt.InitialFields {
+			serviceFields[key] = value
+		}
+	}
+	
+	// Add all fields (defaults + user-provided)
+	var initialArgs []interface{}
+	for key, value := range serviceFields {
+		initialArgs = append(initialArgs, slog.Any(key, value))
+	}
+	
+	logger = logger.With(initialArgs...)
+
+	// Add basic OTEL fields if OTLP is enabled
 	if otlpProvider != nil {
-		// Use configured service name from OTLP config, fallback to default
-		serviceName := opt.OTLP.ServiceName
-		if serviceName == "" {
-			serviceName = "kart-io-service"
-		}
-
 		// Get pod/container/hostname based on deployment environment
-		podName := runtime.GetPodName(serviceName)
-
-		// Build base fields
-		serviceVersion := opt.OTLP.ServiceVersion
-		if serviceVersion == "" {
-			serviceVersion = "1.0.0" // fallback
-		}
+		podName := runtime.GetPodName("kart-io-service")
 
 		args := []interface{}{
-			slog.String("service.name", serviceName),
-			slog.String("service.version", serviceVersion),
 			slog.String("pod", podName),
 			slog.String("job", "kart-io-logger"),
 		}
@@ -136,6 +144,7 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 		callerSkip:        0,
 		disableStacktrace: opt.DisableStacktrace,
 		otlpProvider:      otlpProvider,
+		initialFields:     serviceFields, // Store InitialFields for OTLP export
 		persistentFields:  make(map[string]interface{}),
 	}, nil
 }
@@ -335,6 +344,7 @@ func (l *SlogLogger) With(keysAndValues ...interface{}) core.Logger {
 		callerSkip:        l.callerSkip,
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
+		initialFields:     l.initialFields, // Copy initialFields to child logger
 		persistentFields:  l.mergeWithPersistentFields(keysAndValues...),
 	}
 }
@@ -354,6 +364,7 @@ func (l *SlogLogger) WithCallerSkip(skip int) core.Logger {
 		callerSkip:        l.callerSkip + skip,
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
+		initialFields:     l.initialFields,    // Preserve initial fields
 		persistentFields:  l.persistentFields, // Preserve persistent fields
 	}
 }
@@ -706,7 +717,12 @@ func (l *SlogLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...i
 	// Convert keysAndValues to map
 	attributes := make(map[string]interface{})
 
-	// First, add persistent fields from With()
+	// First, add initial fields from logger configuration
+	for k, v := range l.initialFields {
+		attributes[k] = v
+	}
+
+	// Then, add persistent fields from With() (these can override initial fields)
 	for k, v := range l.persistentFields {
 		attributes[k] = v
 	}

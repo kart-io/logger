@@ -77,6 +77,9 @@ type LogOption struct {
     // 输出配置
     OutputPaths []string `json:"output_paths"`       // 输出目标
     
+    // 初始字段 - 自动包含在每个日志条目中
+    InitialFields map[string]interface{} `json:"-"`  // 初始字段映射
+    
     // OTLP 配置（扁平化和嵌套）
     OTLPEndpoint string      `json:"otlp_endpoint"`  // 扁平化端点
     OTLP         *OTLPOption `json:"otlp"`           // 嵌套配置
@@ -100,6 +103,273 @@ type OTLPOption struct {
     Insecure bool              `json:"insecure"`  // 不安全连接
 }
 ```
+
+## 🏷️ InitialFields 方法
+
+InitialFields 提供了优雅的 API 来管理自动包含在每个日志条目中的字段。支持链式调用和类型安全的字段管理。
+
+### 方法概览
+
+| 方法 | 功能 | 返回值 | 特点 |
+|------|------|---------|------|
+| `WithInitialFields(map[string]interface{})` | 批量添加/更新字段 | `*LogOption` | 支持链式调用，字段合并 |
+| `AddInitialField(key, value)` | 添加单个字段 | `*LogOption` | 支持链式调用，逐个设置 |
+| `GetInitialFields()` | 获取所有字段 | `map[string]interface{}` | 返回副本，只读访问 |
+
+### 基础用法
+
+```go
+// 1. 批量添加字段
+opt := option.DefaultLogOption()
+opt.WithInitialFields(map[string]interface{}{
+    "service.name":    "payment-api",
+    "service.version": "v2.1.0",
+    "environment":     "production",
+})
+
+// 2. 逐个添加字段
+opt.AddInitialField("datacenter", "us-west-2").
+    AddInitialField("instance_id", "web-001").
+    AddInitialField("team", "platform")
+
+// 3. 混合使用
+opt.WithInitialFields(map[string]interface{}{
+    "project": "e-commerce",
+}).AddInitialField("component", "checkout")
+```
+
+### 链式调用示例
+
+```go
+// 完整的链式配置
+opt := option.DefaultLogOption().
+    WithInitialFields(map[string]interface{}{
+        "service.name":    "user-service",
+        "service.version": "v1.0.0",
+    }).
+    AddInitialField("environment", os.Getenv("ENV")).
+    AddInitialField("hostname", os.Getenv("HOSTNAME")).
+    AddInitialField("build_time", time.Now().Format(time.RFC3339))
+
+logger, err := logger.New(opt)
+```
+
+### 字段合并和覆盖
+
+```go
+opt := option.DefaultLogOption()
+
+// 设置初始字段
+opt.WithInitialFields(map[string]interface{}{
+    "service.name": "original-name",
+    "environment":  "dev",
+    "version":      "v1.0.0",
+})
+
+// 后续调用会合并字段，相同键会被覆盖
+opt.WithInitialFields(map[string]interface{}{
+    "service.name": "updated-name",  // 覆盖现有值
+    "region":       "us-east-1",     // 新增字段
+})
+
+// 最终结果:
+// {
+//   "service.name": "updated-name", // 被覆盖
+//   "environment": "dev",           // 保持不变
+//   "version": "v1.0.0",           // 保持不变
+//   "region": "us-east-1"          // 新增
+// }
+```
+
+### 动态字段设置
+
+```go
+func createLoggerWithContext(env, version, instanceID string) (*logger.Logger, error) {
+    opt := option.DefaultLogOption()
+    
+    // 基础服务信息
+    opt.WithInitialFields(map[string]interface{}{
+        "service.name":    "dynamic-service",
+        "service.version": version,
+        "environment":     env,
+    })
+    
+    // 条件性添加字段
+    if instanceID != "" {
+        opt.AddInitialField("instance_id", instanceID)
+    }
+    
+    // 运行时信息
+    if env == "production" {
+        opt.AddInitialField("log_sampling", true).
+            AddInitialField("alert_enabled", true)
+    } else {
+        opt.AddInitialField("debug_mode", true)
+    }
+    
+    return logger.New(opt)
+}
+```
+
+### 字段访问和检查
+
+```go
+opt := option.DefaultLogOption()
+opt.WithInitialFields(map[string]interface{}{
+    "service.name": "example-service",
+    "version": "v1.0.0",
+})
+
+// 获取所有配置的字段（安全的副本）
+fields := opt.GetInitialFields()
+fmt.Printf("配置的字段: %+v\n", fields)
+
+// 检查特定字段
+if serviceName, exists := fields["service.name"]; exists {
+    fmt.Printf("服务名称: %v\n", serviceName)
+}
+
+// 统计字段数量
+fmt.Printf("共配置了 %d 个初始字段\n", len(fields))
+```
+
+### 类型安全示例
+
+```go
+opt := option.DefaultLogOption()
+
+// 支持多种数据类型
+opt.WithInitialFields(map[string]interface{}{
+    // 字符串
+    "service.name": "my-service",
+    
+    // 数字
+    "port":         8080,
+    "timeout":      30.5,
+    
+    // 布尔值
+    "debug":        true,
+    "ssl_enabled":  false,
+    
+    // 时间
+    "start_time":   time.Now(),
+    
+    // 复杂对象（会自动JSON序列化）
+    "config": map[string]string{
+        "db_host": "localhost",
+        "db_port": "5432",
+    },
+})
+```
+
+### 实际应用场景
+
+**1. 微服务配置**
+```go
+func NewMicroserviceLogger(serviceName, version string) (*logger.Logger, error) {
+    opt := option.DefaultLogOption()
+    opt.WithInitialFields(map[string]interface{}{
+        "service.name":     serviceName,
+        "service.version":  version,
+        "service.type":     "microservice",
+        "kubernetes.pod":   os.Getenv("HOSTNAME"),
+        "kubernetes.namespace": os.Getenv("POD_NAMESPACE"),
+    }).AddInitialField("start_time", time.Now())
+    
+    return logger.New(opt)
+}
+```
+
+**2. 请求追踪**
+```go
+func NewRequestLogger(requestID, userID string) (*logger.Logger, error) {
+    opt := option.DefaultLogOption()
+    opt.WithInitialFields(map[string]interface{}{
+        "request_id": requestID,
+        "user_id":    userID,
+        "timestamp":  time.Now(),
+    })
+    
+    return logger.New(opt)
+}
+```
+
+**3. 分环境配置**
+```go
+func NewEnvironmentLogger(env string) (*logger.Logger, error) {
+    opt := option.DefaultLogOption()
+    
+    // 通用字段
+    opt.WithInitialFields(map[string]interface{}{
+        "environment": env,
+        "app_name":    "my-application",
+    })
+    
+    // 环境特定字段
+    switch env {
+    case "production":
+        opt.AddInitialField("log_level", "info").
+            AddInitialField("sampling_rate", 0.1).
+            AddInitialField("alert_webhook", "https://alerts.company.com")
+            
+    case "development":
+        opt.AddInitialField("log_level", "debug").
+            AddInitialField("source_maps", true)
+            
+    case "testing":
+        opt.AddInitialField("log_level", "error").
+            AddInitialField("test_run_id", os.Getenv("TEST_RUN_ID"))
+    }
+    
+    return logger.New(opt)
+}
+```
+
+### ⚠️ 使用注意事项
+
+1. **字段命名规范**
+   ```go
+   // ✅ 推荐: 使用点号分隔的命名
+   opt.AddInitialField("service.name", "my-service")
+   opt.AddInitialField("http.method", "GET")
+   
+   // ❌ 避免: 特殊字符可能影响某些后端
+   opt.AddInitialField("service-name", "my-service")
+   ```
+
+2. **内存使用**
+   ```go
+   // ✅ 推荐: 适度使用初始字段
+   opt.WithInitialFields(map[string]interface{}{
+       "service.name": "api",
+       "version": "v1.0.0",
+   }) // 通常 5-10 个字段即可
+   
+   // ❌ 避免: 过多字段影响性能
+   // 不要添加数百个初始字段
+   ```
+
+3. **值的类型**
+   ```go
+   // ✅ 推荐: 使用基础类型和简单结构
+   opt.AddInitialField("count", 42)
+   opt.AddInitialField("rate", 3.14)
+   opt.AddInitialField("enabled", true)
+   
+   // ⚠️ 注意: 复杂对象会被JSON序列化
+   opt.AddInitialField("config", complexObject) // 可能影响性能
+   ```
+
+4. **线程安全**
+   ```go
+   // ✅ 安全: 在创建 logger 之前配置 InitialFields
+   opt.WithInitialFields(...)
+   logger, _ := logger.New(opt)
+   
+   // ❌ 避免: logger 创建后修改 InitialFields 无效
+   logger, _ := logger.New(opt)
+   opt.AddInitialField("late", "value") // 不会影响已创建的 logger
+   ```
 
 ## ⚙️ 配置方式
 
