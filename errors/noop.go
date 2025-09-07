@@ -76,3 +76,6 @@ func (n *NoOpLogger) WithCallerSkip(skip int) core.Logger {
 
 // SetLevel does nothing
 func (n *NoOpLogger) SetLevel(level core.Level) {}
+
+// Flush does nothing
+func (n *NoOpLogger) Flush() error { return nil }

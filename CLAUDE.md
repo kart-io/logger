@@ -68,6 +68,11 @@ go mod tidy -go=1.23
 cd example/comprehensive && go run main.go
 cd example/performance && go run main.go
 cd example/otlp && go run main.go
+cd example/configuration && go run main.go
+cd example/reload && go run main.go
+cd example/rotation && go run main.go
+cd example/gin && go run main.go
+cd example/integrations/gin && go run main.go
 
 # 运行 OTLP 测试环境（需要 Docker）
 cd otlp-docker && ./deploy.sh
@@ -117,6 +122,10 @@ cd otlp-docker && ./deploy.sh
 - **`factory/`**: 日志器工厂包，处理多源配置冲突和优先级，创建日志器实例
 - **`otlp/`**: OTLP 集成包，智能检测和自动配置
 - **`option/`**: 配置选项包，提供详细的配置验证和标志绑定
+- **`reload/`**: 配置重载包，支持运行时动态配置更新
+- **`runtime/`**: 运行时管理包，处理生命周期和状态管理
+- **`errors/`**: 错误处理包，提供统一的错误日志记录策略
+- **`integrations/`**: 框架集成包，包含 GORM、Kratos、Gin 等适配器
 - **`example/`**: 完整的使用示例，包含性能测试和 OTLP 集成演示
 - **`cmd/demo/`**: 命令行演示程序
 - **`otlp-docker/`**: OTLP 测试环境的 Docker 配置
@@ -214,12 +223,14 @@ cd otlp-docker && ./deploy.sh
 
 - **主入口**: `logger.go` - 全局日志器和包级便利函数
 - **核心接口**: `core/logger.go` - Logger 接口定义
-- **工厂实现**: `factory/logger_factory.go` - 日志器创建逻辑
-- **配置选项**: `option/log_option.go` - 配置结构和验证
-- **Zap 引擎**: `engines/zap/zap_logger.go` - Zap 实现
-- **Slog 引擎**: `engines/slog/slog_logger.go` - Slog 实现
-- **字段标准**: `fields/` - 统一字段定义
-- **OTLP 集成**: `otlp/exporter.go` - OpenTelemetry 导出器
+- **工厂实现**: `factory/factory.go` - 日志器创建逻辑
+- **配置选项**: `option/option.go` - 配置结构和验证
+- **Zap 引擎**: `engines/zap/zap.go` - Zap 实现
+- **Slog 引擎**: `engines/slog/slog.go` - Slog 实现
+- **字段标准**: `fields/fields.go` - 统一字段定义
+- **配置重载**: `reload/reloader.go` - 运行时配置重载
+- **错误处理**: `errors/handler.go` - 统一错误日志策略
+- **OTLP 集成**: `otlp/provider.go` - OpenTelemetry 提供者
 - **需求文档**: `docs/REQUIREMENTS.md` - 详细的中文需求文档
 
 ## 测试和验证
@@ -231,10 +242,18 @@ cd otlp-docker && ./deploy.sh
 go test ./core
 go test ./engines/zap
 go test ./engines/slog
+go test ./factory
+go test ./reload
+go test ./errors
+go test ./integrations/gorm
+go test ./integrations/kratos
+go test ./integrations/gin
 
 # 测试特定功能
 go test -run TestLoggerFactory ./factory
 go test -run TestOTLP ./otlp
+go test -run TestReloader ./reload
+go test -run TestErrorHandler ./errors
 
 # 性能测试
 go test -bench=BenchmarkZap ./engines/zap
@@ -253,6 +272,9 @@ cd example/performance && go run main.go
 # 性能目标: Zap 引擎零分配，Slog 引擎最小分配
 # 配置约定: 支持扁平化(otlp-endpoint)和嵌套(otlp.endpoint)两种配置风格
 # OTLP 逻辑: 有端点即启用，无需显式 enabled: true
+# 热重载: 支持信号驱动和 API 驱动的配置重载机制
+# 框架集成: 提供 GORM、Kratos、Gin 等主流框架适配器
+# 错误恢复: 配置重载失败时自动回滚到上一个稳定配置
 
 <!--
 快速添加格式示例：

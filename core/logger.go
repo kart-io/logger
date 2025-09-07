@@ -33,4 +33,14 @@ type Logger interface {
 
 	// Configuration methods
 	SetLevel(level Level)
+
+	// Buffer management methods
+	Flush() error
+}
+
+// GlobalCallOptimizer is an internal interface for engines that support
+// optimized global call logging to avoid runtime call stack detection.
+type GlobalCallOptimizer interface {
+	// CreateGlobalCallLogger returns a logger optimized for global function calls
+	CreateGlobalCallLogger() Logger
 }

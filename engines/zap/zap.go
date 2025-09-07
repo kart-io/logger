@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/kart-io/logger/core"
+	"github.com/kart-io/logger/errors"
 	"github.com/kart-io/logger/fields"
 	"github.com/kart-io/logger/option"
 	"github.com/kart-io/logger/otlp"
@@ -21,8 +22,10 @@ type ZapLogger struct {
 	logger           *zap.Logger
 	sugar            *zap.SugaredLogger
 	level            core.Level
+	atomicLevel      *zap.AtomicLevel // For dynamic level changes
 	mapper           *fields.FieldMapper
 	callerSkip       int
+	isGlobalCall     bool // Cache whether this is a global call to avoid runtime detection
 	otlpProvider     *otlp.LoggerProvider
 	initialFields    map[string]interface{} // Fields from InitialFields config
 	persistentFields map[string]interface{} // Fields added via With()
@@ -50,8 +53,11 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 		otlpProvider = provider
 	}
 
-	// Create Zap config
+	// Create Zap config with atomic level for dynamic changes
 	config := createZapConfig(opt, level)
+
+	// Store atomic level for dynamic changes
+	atomicLevel := config.Level
 
 	// Create Zap logger
 	zapLogger, err := config.Build(
@@ -70,7 +76,7 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 	// Add initial fields from configuration with default values
 	initialFields := make([]zap.Field, 0)
 
-	// Ensure essential service fields are present with default values if not provided
+	// Initialize service fields with defaults and user-provided initial fields
 	serviceFields := map[string]interface{}{
 		"service.name":    "unknown",
 		"service.version": "unknown",
@@ -114,8 +120,10 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 		logger:           standardizedLogger,
 		sugar:            standardizedLogger.Sugar(),
 		level:            level,
+		atomicLevel:      &atomicLevel,
 		mapper:           fields.NewFieldMapper(),
 		callerSkip:       0,
+		isGlobalCall:     false, // Default to direct call
 		otlpProvider:     otlpProvider,
 		initialFields:    serviceFields, // Store InitialFields for OTLP export
 		persistentFields: make(map[string]interface{}),
@@ -124,62 +132,52 @@ func NewZapLogger(opt *option.LogOption) (core.Logger, error) {
 
 // Debug logs a debug message.
 func (l *ZapLogger) Debug(args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Debug(args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Debug(args...) })
 }
 
 // Info logs an info message.
 func (l *ZapLogger) Info(args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Info(args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Info(args...) })
 }
 
 // Warn logs a warning message.
 func (l *ZapLogger) Warn(args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Warn(args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Warn(args...) })
 }
 
 // Error logs an error message.
 func (l *ZapLogger) Error(args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Error(args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Error(args...) })
 }
 
 // Fatal logs a fatal message and exits.
 func (l *ZapLogger) Fatal(args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Fatal(args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Fatal(args...) })
 }
 
 // Debugf logs a formatted debug message.
 func (l *ZapLogger) Debugf(template string, args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Debugf(template, args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Debugf(template, args...) })
 }
 
 // Infof logs a formatted info message.
 func (l *ZapLogger) Infof(template string, args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Infof(template, args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Infof(template, args...) })
 }
 
 // Warnf logs a formatted warning message.
 func (l *ZapLogger) Warnf(template string, args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Warnf(template, args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Warnf(template, args...) })
 }
 
 // Errorf logs a formatted error message.
 func (l *ZapLogger) Errorf(template string, args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Errorf(template, args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Errorf(template, args...) })
 }
 
 // Fatalf logs a formatted fatal message and exits.
 func (l *ZapLogger) Fatalf(template string, args ...interface{}) {
-	logger := l.withDynamicCallerSkip().(*ZapLogger)
-	logger.sugar.Fatalf(template, args...)
+	l.logWithOptionalSkip(func(logger *ZapLogger) { logger.sugar.Fatalf(template, args...) })
 }
 
 // Debugw logs a debug message with structured fields.
@@ -241,8 +239,10 @@ func (l *ZapLogger) With(keysAndValues ...interface{}) core.Logger {
 		logger:           newSugar.Desugar(),
 		sugar:            newSugar,
 		level:            l.level,
+		atomicLevel:      l.atomicLevel, // Share atomic level with parent
 		mapper:           l.mapper,
 		callerSkip:       l.callerSkip,
+		isGlobalCall:     l.isGlobalCall, // Inherit from parent
 		otlpProvider:     l.otlpProvider,
 		initialFields:    l.initialFields, // Copy initialFields to child logger
 		persistentFields: newPersistentFields,
@@ -263,51 +263,91 @@ func (l *ZapLogger) WithCallerSkip(skip int) core.Logger {
 		logger:           newLogger,
 		sugar:            newLogger.Sugar(),
 		level:            l.level,
+		atomicLevel:      l.atomicLevel, // Share atomic level with parent
 		mapper:           l.mapper,
 		callerSkip:       l.callerSkip + skip,
+		isGlobalCall:     l.isGlobalCall, // Preserve global call flag
 		otlpProvider:     l.otlpProvider,
 		initialFields:    l.initialFields,    // Preserve initial fields
 		persistentFields: l.persistentFields, // Preserve persistent fields
 	}
 }
 
-// withDynamicCallerSkip creates a logger with caller skip based on call stack
-func (l *ZapLogger) withDynamicCallerSkip() core.Logger {
-	// Check if this is a call through global logger function
-	var pcs [10]uintptr
-	n := goruntime.Callers(1, pcs[:])
-	hasGlobalCall := false
-
-	if n > 0 {
-		fs := goruntime.CallersFrames(pcs[:n])
-		for i := 0; i < n; i++ {
-			if f, more := fs.Next(); more || i == n-1 {
-				if strings.Contains(f.File, "github.com/kart-io/logger/logger.go") {
-					hasGlobalCall = true
-					break
-				}
-			}
+// logWithOptionalSkip executes the log function with caller skip optimization
+func (l *ZapLogger) logWithOptionalSkip(logFn func(*ZapLogger)) {
+	var skipLevel int
+	if l.isGlobalCall {
+		// Global path: logWithOptionalSkip -> logFn -> zap sugar method -> getOptimizedGlobal -> logger.Info -> actual caller
+		skipLevel = 3
+	} else {
+		// Check if call is coming from integration adapter
+		if l.isFromIntegration() {
+			// Integration path: logWithOptionalSkip -> logFn -> zap sugar method -> adapter.method -> integration.method -> actual caller
+			skipLevel = 4
+		} else {
+			// Direct call path: logWithOptionalSkip -> logFn -> zap sugar method -> actual caller
+			skipLevel = 2
 		}
 	}
 
-	// Add extra skip for global calls
-	extraSkip := 0
-	if hasGlobalCall {
-		extraSkip = 1
-	}
-
-	if extraSkip > 0 {
-		return l.WithCallerSkip(extraSkip)
-	}
-
-	return l
+	logger := l.WithCallerSkip(skipLevel).(*ZapLogger)
+	logFn(logger)
 }
 
-// SetLevel sets the minimum logging level.
+// withDynamicCallerSkip creates a logger with caller skip based on call stack (original implementation)
+func (l *ZapLogger) withDynamicCallerSkip() core.Logger {
+	return l // For now, just return self without dynamic detection
+}
+
+// CreateGlobalCallLogger creates a logger optimized for global function calls
+func (l *ZapLogger) CreateGlobalCallLogger() core.Logger {
+	return &ZapLogger{
+		logger:           l.logger,
+		sugar:            l.sugar,
+		level:            l.level,
+		atomicLevel:      l.atomicLevel,
+		mapper:           l.mapper,
+		callerSkip:       l.callerSkip,
+		isGlobalCall:     true, // Mark as global call
+		otlpProvider:     l.otlpProvider,
+		initialFields:    l.initialFields,
+		persistentFields: l.persistentFields,
+	}
+}
+
+// SetLevel sets the minimum logging level dynamically.
 func (l *ZapLogger) SetLevel(level core.Level) {
 	l.level = level
-	// Note: Zap doesn't support dynamic level changes easily
-	// This would require creating a new logger with different config
+	if l.atomicLevel != nil {
+		l.atomicLevel.SetLevel(mapToZapLevel(level))
+	}
+}
+
+// Flush flushes any buffered log entries.
+func (l *ZapLogger) Flush() error {
+	return l.logger.Sync()
+}
+
+// isFromIntegration checks if the logging call originates from an integration adapter
+func (l *ZapLogger) isFromIntegration() bool {
+	// Check call stack for integration package paths
+	var pcs [10]uintptr
+	n := goruntime.Callers(1, pcs[:])
+	if n == 0 {
+		return false
+	}
+
+	frames := goruntime.CallersFrames(pcs[:n])
+	for {
+		frame, more := frames.Next()
+		if strings.Contains(frame.File, "/integrations/") {
+			return true
+		}
+		if !more {
+			break
+		}
+	}
+	return false
 }
 
 // Helper functions
@@ -480,7 +520,7 @@ func (l *ZapLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...in
 
 	// Send log record to OTLP
 	if err := l.otlpProvider.SendLogRecord(level, msg, attributes); err != nil {
-		// Log the error to stderr without causing recursion
-		fmt.Printf("OTLP export error: %v\n", err)
+		// Use thread-safe error logger to prevent concurrent write issues
+		errors.GetDefaultErrorLogger().LogOTLPError("Failed to export log", err)
 	}
 }

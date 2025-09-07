@@ -326,3 +326,4 @@ func (l *testLogger) With(keysAndValues ...interface{}) core.Logger             
 func (l *testLogger) WithCtx(ctx context.Context, keysAndValues ...interface{}) core.Logger { return l }
 func (l *testLogger) WithCallerSkip(skip int) core.Logger                                   { return l }
 func (l *testLogger) SetLevel(level core.Level)                                             {}
+func (l *testLogger) Flush() error                                                          { return nil }

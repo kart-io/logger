@@ -8,24 +8,92 @@ import (
 	"os"
 	goruntime "runtime"
 	"strings"
+	"sync/atomic"
 
 	"github.com/kart-io/logger/core"
+	"github.com/kart-io/logger/errors"
 	"github.com/kart-io/logger/fields"
 	"github.com/kart-io/logger/option"
 	"github.com/kart-io/logger/otlp"
 	"github.com/kart-io/logger/runtime"
 )
 
+// managedWriter wraps io.Writer with cleanup functionality
+type managedWriter struct {
+	writers []io.Writer
+	closers []io.Closer
+}
+
+func (mw *managedWriter) Write(p []byte) (n int, err error) {
+	if len(mw.writers) == 1 {
+		return mw.writers[0].Write(p)
+	}
+
+	// Write to all writers (similar to io.MultiWriter)
+	for _, w := range mw.writers {
+		n, err = w.Write(p)
+		if err != nil {
+			return
+		}
+		if n != len(p) {
+			err = io.ErrShortWrite
+			return
+		}
+	}
+	return len(p), nil
+}
+
+func (mw *managedWriter) Close() error {
+	var firstErr error
+	for _, closer := range mw.closers {
+		if err := closer.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+// dynamicLevelHandler wraps slog.Handler to support dynamic level changes
+type dynamicLevelHandler struct {
+	handler     slog.Handler
+	levelGetter func() slog.Level
+}
+
+func (h *dynamicLevelHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	return level >= h.levelGetter()
+}
+
+func (h *dynamicLevelHandler) Handle(ctx context.Context, record slog.Record) error {
+	return h.handler.Handle(ctx, record)
+}
+
+func (h *dynamicLevelHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &dynamicLevelHandler{
+		handler:     h.handler.WithAttrs(attrs),
+		levelGetter: h.levelGetter,
+	}
+}
+
+func (h *dynamicLevelHandler) WithGroup(name string) slog.Handler {
+	return &dynamicLevelHandler{
+		handler:     h.handler.WithGroup(name),
+		levelGetter: h.levelGetter,
+	}
+}
+
 // SlogLogger implements the core.Logger interface using Go's standard slog library.
 type SlogLogger struct {
 	logger            *slog.Logger
 	level             core.Level
+	atomicLevel       *int64 // For atomic level changes (stores slog.Level as int64)
 	mapper            *fields.FieldMapper
 	callerSkip        int
+	isGlobalCall      bool // Cache whether this is a global call to avoid runtime detection
 	disableStacktrace bool
 	otlpProvider      *otlp.LoggerProvider
 	initialFields     map[string]interface{} // Fields from InitialFields config
 	persistentFields  map[string]interface{} // Fields added via With()
+	managedWriter     *managedWriter         // For resource cleanup
 }
 
 // NewSlogLogger creates a new Slog-based logger with the provided configuration.
@@ -50,27 +118,44 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 		otlpProvider = provider
 	}
 
-	// Create output writers
-	writers, err := createOutputWriters(opt.OutputPaths)
+	// Create managed output writers with proper resource management
+	managedWriter, err := createManagedOutputWriters(opt.OutputPaths)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create handler options - we handle caller manually for consistent formatting
+	// Create atomic level for dynamic changes
+	atomicLevel := new(int64)
+	atomic.StoreInt64(atomicLevel, int64(mapToSlogLevel(level)))
+
+	// Create level getter function for dynamic handler
+	levelGetter := func() slog.Level {
+		return slog.Level(atomic.LoadInt64(atomicLevel))
+	}
+
+	// Create handler options with standardized field names
 	handlerOpts := &slog.HandlerOptions{
 		Level:     mapToSlogLevel(level),
 		AddSource: false, // We'll add standardized caller field ourselves
 		ReplaceAttr: func(groups []string, attr slog.Attr) slog.Attr {
-			// Convert level to lowercase for consistent formatting
-			if attr.Key == slog.LevelKey {
+			// Standardize field names to match Zap engine output
+			switch attr.Key {
+			case slog.TimeKey:
+				return slog.Attr{Key: fields.TimestampField, Value: attr.Value}
+			case slog.LevelKey:
+				// Convert level to lowercase for consistent formatting
 				if level, ok := attr.Value.Any().(slog.Level); ok {
 					return slog.Attr{
-						Key:   attr.Key,
+						Key:   fields.LevelField,
 						Value: slog.StringValue(strings.ToLower(level.String())),
 					}
 				}
+				return slog.Attr{Key: fields.LevelField, Value: attr.Value}
+			case slog.MessageKey:
+				return slog.Attr{Key: fields.MessageField, Value: attr.Value}
+			default:
+				return attr
 			}
-			return attr
 		},
 	}
 
@@ -78,16 +163,22 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 	var handler slog.Handler
 	switch strings.ToLower(opt.Format) {
 	case "json":
-		handler = slog.NewJSONHandler(writers, handlerOpts)
+		handler = slog.NewJSONHandler(managedWriter, handlerOpts)
 	case "console", "text":
-		handler = slog.NewTextHandler(writers, handlerOpts)
+		handler = slog.NewTextHandler(managedWriter, handlerOpts)
 	default:
-		handler = slog.NewJSONHandler(writers, handlerOpts)
+		handler = slog.NewJSONHandler(managedWriter, handlerOpts)
+	}
+
+	// Wrap with dynamic level handler
+	dynamicHandler := &dynamicLevelHandler{
+		handler:     handler,
+		levelGetter: levelGetter,
 	}
 
 	// Create standardized handler wrapper for field consistency
 	standardHandler := &standardizedHandler{
-		handler:           handler,
+		handler:           dynamicHandler,
 		mapper:            fields.NewFieldMapper(),
 		disableCaller:     opt.DisableCaller,
 		disableStacktrace: opt.DisableStacktrace,
@@ -96,7 +187,7 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 
 	logger := slog.New(standardHandler)
 
-	// Add initial fields from configuration with default values
+	// Initialize service fields with defaults and user-provided initial fields
 	serviceFields := map[string]interface{}{
 		"service.name":    "unknown",
 		"service.version": "unknown",
@@ -140,196 +231,102 @@ func NewSlogLogger(opt *option.LogOption) (core.Logger, error) {
 	return &SlogLogger{
 		logger:            logger,
 		level:             level,
+		atomicLevel:       atomicLevel, // Store for dynamic level changes
 		mapper:            fields.NewFieldMapper(),
 		callerSkip:        0,
+		isGlobalCall:      false, // Default to direct call
 		disableStacktrace: opt.DisableStacktrace,
 		otlpProvider:      otlpProvider,
 		initialFields:     serviceFields, // Store InitialFields for OTLP export
 		persistentFields:  make(map[string]interface{}),
+		managedWriter:     managedWriter, // Store for cleanup
 	}, nil
 }
 
 // Debug logs a debug message.
 func (l *SlogLogger) Debug(args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Debug(formatArgs(args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Debug(formatArgs(args...))
-	}
+	l.logWithOptionalCaller(core.DebugLevel, formatArgs(args...), nil)
 }
 
 // Info logs an info message.
 func (l *SlogLogger) Info(args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Info(formatArgs(args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Info(formatArgs(args...))
-	}
+	l.logWithOptionalCaller(core.InfoLevel, formatArgs(args...), nil)
 }
 
 // Warn logs a warning message.
 func (l *SlogLogger) Warn(args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Warn(formatArgs(args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Warn(formatArgs(args...))
-	}
+	l.logWithOptionalCaller(core.WarnLevel, formatArgs(args...), nil)
 }
 
 // Error logs an error message.
 func (l *SlogLogger) Error(args ...interface{}) {
-	attrs := []any{}
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for error level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.Error(formatArgs(args...), attrs...)
+	l.logWithOptionalCaller(core.ErrorLevel, formatArgs(args...), nil)
 }
 
 // Fatal logs a fatal message and exits.
 func (l *SlogLogger) Fatal(args ...interface{}) {
-	attrs := []any{}
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for fatal level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.Error(formatArgs(args...), attrs...)
+	l.logWithOptionalCaller(core.FatalLevel, formatArgs(args...), nil)
 	os.Exit(1)
 }
 
 // Debugf logs a formatted debug message.
 func (l *SlogLogger) Debugf(template string, args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Debug(fmt.Sprintf(template, args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Debug(fmt.Sprintf(template, args...))
-	}
+	l.logWithOptionalCaller(core.DebugLevel, fmt.Sprintf(template, args...), nil)
 }
 
 // Infof logs a formatted info message.
 func (l *SlogLogger) Infof(template string, args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Info(fmt.Sprintf(template, args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Info(fmt.Sprintf(template, args...))
-	}
+	l.logWithOptionalCaller(core.InfoLevel, fmt.Sprintf(template, args...), nil)
 }
 
 // Warnf logs a formatted warning message.
 func (l *SlogLogger) Warnf(template string, args ...interface{}) {
-	if caller := l.getCaller(); caller != "" {
-		l.logger.Warn(fmt.Sprintf(template, args...), slog.String(fields.CallerField, caller))
-	} else {
-		l.logger.Warn(fmt.Sprintf(template, args...))
-	}
+	l.logWithOptionalCaller(core.WarnLevel, fmt.Sprintf(template, args...), nil)
 }
 
 // Errorf logs a formatted error message.
 func (l *SlogLogger) Errorf(template string, args ...interface{}) {
-	attrs := []any{}
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for error level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.Error(fmt.Sprintf(template, args...), attrs...)
+	l.logWithOptionalCaller(core.ErrorLevel, fmt.Sprintf(template, args...), nil)
 }
 
 // Fatalf logs a formatted fatal message and exits.
 func (l *SlogLogger) Fatalf(template string, args ...interface{}) {
-	attrs := []any{}
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for fatal level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.Error(fmt.Sprintf(template, args...), attrs...)
+	l.logWithOptionalCaller(core.FatalLevel, fmt.Sprintf(template, args...), nil)
 	os.Exit(1)
 }
 
 // Debugw logs a debug message with structured fields.
 func (l *SlogLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-	l.logger.DebugContext(context.Background(), msg, attrs...)
+	l.logWithOptionalCaller(core.DebugLevel, msg, attrs)
 	l.sendToOTLP(core.DebugLevel, msg, keysAndValues...)
 }
 
 // Infow logs an info message with structured fields.
 func (l *SlogLogger) Infow(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-	l.logger.InfoContext(context.Background(), msg, attrs...)
+	l.logWithOptionalCaller(core.InfoLevel, msg, attrs)
 	l.sendToOTLP(core.InfoLevel, msg, keysAndValues...)
 }
 
 // Warnw logs a warning message with structured fields.
 func (l *SlogLogger) Warnw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-	l.logger.WarnContext(context.Background(), msg, attrs...)
+	l.logWithOptionalCaller(core.WarnLevel, msg, attrs)
 	l.sendToOTLP(core.WarnLevel, msg, keysAndValues...)
 }
 
 // Errorw logs an error message with structured fields.
 func (l *SlogLogger) Errorw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for error level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.ErrorContext(context.Background(), msg, attrs...)
+	l.logWithOptionalCaller(core.ErrorLevel, msg, attrs)
 	l.sendToOTLP(core.ErrorLevel, msg, keysAndValues...)
 }
 
 // Fatalw logs a fatal message with structured fields and exits.
 func (l *SlogLogger) Fatalw(msg string, keysAndValues ...interface{}) {
 	attrs := l.convertToSlogAttrs(keysAndValues...)
-
-	if caller := l.getCaller(); caller != "" {
-		attrs = append(attrs, slog.String(fields.CallerField, caller))
-	}
-
-	// Add stacktrace for fatal level
-	if stacktrace := l.getStacktrace(); stacktrace != "" {
-		attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
-	}
-
-	l.logger.ErrorContext(context.Background(), msg, attrs...)
+	l.logWithOptionalCaller(core.FatalLevel, msg, attrs)
 	l.sendToOTLP(core.FatalLevel, msg, keysAndValues...)
 	os.Exit(1)
 }
@@ -340,12 +337,15 @@ func (l *SlogLogger) With(keysAndValues ...interface{}) core.Logger {
 	return &SlogLogger{
 		logger:            newLogger,
 		level:             l.level,
+		atomicLevel:       l.atomicLevel, // Share atomic level with parent
 		mapper:            l.mapper,
 		callerSkip:        l.callerSkip,
+		isGlobalCall:      l.isGlobalCall, // Inherit from parent
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
 		initialFields:     l.initialFields, // Copy initialFields to child logger
 		persistentFields:  l.mergeWithPersistentFields(keysAndValues...),
+		managedWriter:     nil, // Child loggers don't own the managed writer
 	}
 }
 
@@ -360,20 +360,34 @@ func (l *SlogLogger) WithCallerSkip(skip int) core.Logger {
 	return &SlogLogger{
 		logger:            l.logger,
 		level:             l.level,
+		atomicLevel:       l.atomicLevel, // Share atomic level with parent
 		mapper:            l.mapper,
 		callerSkip:        l.callerSkip + skip,
+		isGlobalCall:      l.isGlobalCall, // Preserve global call flag
 		disableStacktrace: l.disableStacktrace,
 		otlpProvider:      l.otlpProvider,
 		initialFields:     l.initialFields,    // Preserve initial fields
 		persistentFields:  l.persistentFields, // Preserve persistent fields
+		managedWriter:     nil,                // Child loggers don't own the managed writer
 	}
 }
 
-// SetLevel sets the minimum logging level.
+// SetLevel sets the minimum logging level dynamically.
 func (l *SlogLogger) SetLevel(level core.Level) {
 	l.level = level
-	// Note: slog doesn't support dynamic level changes easily
-	// This would require recreating the handler with new options
+	if l.atomicLevel != nil {
+		atomic.StoreInt64(l.atomicLevel, int64(mapToSlogLevel(level)))
+	}
+}
+
+// Flush flushes any buffered log entries and closes file resources if this is the root logger.
+func (l *SlogLogger) Flush() error {
+	// slog automatically flushes to the underlying writer
+	// Close managed files if available (only on root logger, not child loggers)
+	if l.managedWriter != nil {
+		return l.managedWriter.Close()
+	}
+	return nil
 }
 
 // Helper functions
@@ -473,12 +487,17 @@ func mapSlogLevelToCoreLevel(level slog.Level) core.Level {
 	}
 }
 
-func createOutputWriters(paths []string) (io.Writer, error) {
+func createManagedOutputWriters(paths []string) (*managedWriter, error) {
 	if len(paths) == 0 {
-		return os.Stdout, nil
+		return &managedWriter{
+			writers: []io.Writer{os.Stdout},
+			closers: []io.Closer{},
+		}, nil
 	}
 
 	var writers []io.Writer
+	var closers []io.Closer
+
 	for _, path := range paths {
 		switch strings.ToLower(path) {
 		case "stdout", "":
@@ -488,17 +507,21 @@ func createOutputWriters(paths []string) (io.Writer, error) {
 		default:
 			file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 			if err != nil {
+				// Close any already opened files on error
+				for _, closer := range closers {
+					closer.Close()
+				}
 				return nil, err
 			}
 			writers = append(writers, file)
+			closers = append(closers, file)
 		}
 	}
 
-	if len(writers) == 1 {
-		return writers[0], nil
-	}
-
-	return io.MultiWriter(writers...), nil
+	return &managedWriter{
+		writers: writers,
+		closers: closers,
+	}, nil
 }
 
 // standardizedHandler wraps slog.Handler to ensure field standardization
@@ -552,8 +575,8 @@ func (h *standardizedHandler) Handle(ctx context.Context, record slog.Record) er
 	if h.otlpProvider != nil {
 		level := mapSlogLevelToCoreLevel(record.Level)
 		if err := h.otlpProvider.SendLogRecord(level, record.Message, attributes); err != nil {
-			// Log the error to stderr without causing recursion
-			fmt.Printf("OTLP export error: %v\n", err)
+			// Use thread-safe error logger to prevent concurrent write issues
+			errors.GetDefaultErrorLogger().LogOTLPError("Failed to export log", err)
 		}
 	}
 
@@ -738,8 +761,8 @@ func (l *SlogLogger) sendToOTLP(level core.Level, msg string, keysAndValues ...i
 
 	// Send log record to OTLP
 	if err := l.otlpProvider.SendLogRecord(level, msg, attributes); err != nil {
-		// Log the error to stderr without causing recursion
-		fmt.Printf("OTLP export error: %v\n", err)
+		// Use thread-safe error logger to prevent concurrent write issues
+		errors.GetDefaultErrorLogger().LogOTLPError("Failed to export log", err)
 	}
 }
 
@@ -759,4 +782,107 @@ func (l *SlogLogger) mergeWithPersistentFields(keysAndValues ...interface{}) map
 		}
 	}
 	return newPersistentFields
+}
+
+// logWithOptionalCaller executes optimized logging with caller detection
+func (l *SlogLogger) logWithOptionalCaller(level core.Level, msg string, attrs []any) {
+	if attrs == nil {
+		attrs = []any{}
+	}
+
+	// Determine caller skip based on call path
+	var skip int
+	if l.isGlobalCall {
+		skip = 5 + l.callerSkip // getCallerWithSkip -> logWithOptionalCaller -> Info -> getOptimizedGlobal -> logger.Info -> actual caller
+	} else {
+		// Check if call is coming from integration adapter by examining stack
+		if l.isFromIntegration() {
+			skip = 6 + l.callerSkip // getCallerWithSkip -> logWithOptionalCaller -> Info -> adapter.method -> integration.method -> actual caller
+		} else {
+			skip = 4 + l.callerSkip // getCallerWithSkip -> logWithOptionalCaller -> Info -> actual caller
+		}
+	}
+
+	if caller := l.getCallerWithSkip(skip); caller != "" {
+		attrs = append(attrs, slog.String(fields.CallerField, caller))
+	}
+
+	// Add stacktrace for error and fatal levels
+	if (level == core.ErrorLevel || level == core.FatalLevel) && !l.disableStacktrace {
+		if stacktrace := l.getStacktrace(); stacktrace != "" {
+			attrs = append(attrs, slog.String(fields.StacktraceField, stacktrace))
+		}
+	}
+
+	// Log at appropriate level
+	switch level {
+	case core.DebugLevel:
+		l.logger.DebugContext(context.Background(), msg, attrs...)
+	case core.InfoLevel:
+		l.logger.InfoContext(context.Background(), msg, attrs...)
+	case core.WarnLevel:
+		l.logger.WarnContext(context.Background(), msg, attrs...)
+	case core.ErrorLevel:
+		l.logger.ErrorContext(context.Background(), msg, attrs...)
+	case core.FatalLevel:
+		l.logger.ErrorContext(context.Background(), msg, attrs...)
+	}
+}
+
+// getCallerWithSkip returns caller info with specified skip levels
+func (l *SlogLogger) getCallerWithSkip(skip int) string {
+	var pcs [1]uintptr
+	if goruntime.Callers(skip, pcs[:]) > 0 {
+		fs := goruntime.CallersFrames(pcs[:1])
+		if f, _ := fs.Next(); f.File != "" {
+			// Extract just the filename from the full path
+			file := f.File
+			if idx := strings.LastIndex(file, "/"); idx >= 0 {
+				if idx2 := strings.LastIndex(file[:idx], "/"); idx2 >= 0 {
+					file = file[idx2+1:] // Keep last two path segments
+				}
+			}
+			return fmt.Sprintf("%s:%d", file, f.Line)
+		}
+	}
+	return ""
+}
+
+// isFromIntegration checks if the logging call originates from an integration adapter
+func (l *SlogLogger) isFromIntegration() bool {
+	// Check call stack for integration package paths
+	var pcs [10]uintptr
+	n := goruntime.Callers(1, pcs[:])
+	if n == 0 {
+		return false
+	}
+
+	frames := goruntime.CallersFrames(pcs[:n])
+	for {
+		frame, more := frames.Next()
+		if strings.Contains(frame.File, "/integrations/") {
+			return true
+		}
+		if !more {
+			break
+		}
+	}
+	return false
+}
+
+// CreateGlobalCallLogger creates a logger optimized for global function calls
+func (l *SlogLogger) CreateGlobalCallLogger() core.Logger {
+	return &SlogLogger{
+		logger:            l.logger,
+		level:             l.level,
+		atomicLevel:       l.atomicLevel,
+		mapper:            l.mapper,
+		callerSkip:        l.callerSkip,
+		isGlobalCall:      true, // Mark as global call
+		disableStacktrace: l.disableStacktrace,
+		otlpProvider:      l.otlpProvider,
+		initialFields:     l.initialFields,
+		persistentFields:  l.persistentFields,
+		managedWriter:     nil, // Child loggers don't own the managed writer
+	}
 }

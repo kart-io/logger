@@ -40,6 +40,7 @@ func (m *mockLogger) Errorw(msg string, keysAndValues ...interface{}) {
 }
 func (m *mockLogger) Fatalw(msg string, keysAndValues ...interface{}) {}
 func (m *mockLogger) SetLevel(level core.Level)                       {}
+func (m *mockLogger) Flush() error                                    { return nil }
 
 func (m *mockLogger) Infow(msg string, keysAndValues ...interface{}) {
 	m.infoCalls = append(m.infoCalls, mockCall{msg: msg, fields: keysAndValues})

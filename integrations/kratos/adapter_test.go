@@ -33,6 +33,7 @@ func (m *mockLogger) Warnf(template string, args ...interface{})  {}
 func (m *mockLogger) Errorf(template string, args ...interface{}) {}
 func (m *mockLogger) Fatalf(template string, args ...interface{}) {}
 func (m *mockLogger) SetLevel(level core.Level)                   {}
+func (m *mockLogger) Flush() error                                { return nil }
 
 func (m *mockLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	m.debugCalls = append(m.debugCalls, mockCall{msg: msg, fields: keysAndValues})
