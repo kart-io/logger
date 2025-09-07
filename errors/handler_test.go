@@ -3,6 +3,7 @@ package errors
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -189,9 +190,12 @@ func TestErrorHandler_ExecuteWithRetry(t *testing.T) {
 }
 
 func TestErrorHandler_ErrorCallback(t *testing.T) {
+	var mu sync.Mutex
 	var callbackErr *LoggerError
 	handler := NewErrorHandler(nil)
 	handler.SetErrorCallback(func(err *LoggerError) {
+		mu.Lock()
+		defer mu.Unlock()
 		callbackErr = err
 	})
 
@@ -201,11 +205,15 @@ func TestErrorHandler_ErrorCallback(t *testing.T) {
 	// Give callback goroutine a moment to execute
 	time.Sleep(10 * time.Millisecond)
 
-	if callbackErr == nil {
+	mu.Lock()
+	receivedErr := callbackErr
+	mu.Unlock()
+
+	if receivedErr == nil {
 		t.Error("Expected error callback to be called")
 	}
-	if callbackErr.Type != OutputError {
-		t.Errorf("Expected OutputError, got %v", callbackErr.Type)
+	if receivedErr.Type != OutputError {
+		t.Errorf("Expected OutputError, got %v", receivedErr.Type)
 	}
 }
 

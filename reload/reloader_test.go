@@ -451,6 +451,7 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 	}
 	factory := factory.NewLoggerFactory(opt)
 
+	var mu sync.Mutex
 	var callbackCalled bool
 	var callbackOldConfig, callbackNewConfig *option.LogOption
 
@@ -464,6 +465,8 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 			return nil
 		},
 		Callback: func(oldCfg, newCfg *option.LogOption) error {
+			mu.Lock()
+			defer mu.Unlock()
 			callbackCalled = true
 			callbackOldConfig = oldCfg
 			callbackNewConfig = newCfg
@@ -498,16 +501,24 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if !callbackCalled {
+	mu.Lock()
+	called := callbackCalled
+	oldCfg := callbackOldConfig
+	newCfg := callbackNewConfig
+	mu.Unlock()
+
+	if !called {
 		t.Error("Callback should be called for successful reload")
 	}
 
-	if callbackOldConfig.Level != "INFO" || callbackNewConfig.Level != "DEBUG" {
+	if oldCfg.Level != "INFO" || newCfg.Level != "DEBUG" {
 		t.Error("Callback received incorrect config parameters")
 	}
 
 	// Reset callback state
+	mu.Lock()
 	callbackCalled = false
+	mu.Unlock()
 
 	// Test invalid config (should be rejected by validation)
 	invalidCfg := &option.LogOption{
@@ -529,7 +540,10 @@ func TestConfigReloader_ValidationCallback(t *testing.T) {
 	}
 
 	// Callback should not have been called for failed validation
-	if callbackCalled {
+	mu.Lock()
+	called = callbackCalled
+	mu.Unlock()
+	if called {
 		t.Error("Callback should not be called for failed validation")
 	}
 }

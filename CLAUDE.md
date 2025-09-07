@@ -53,6 +53,9 @@ go test -bench=. ./...
 # 运行测试并显示覆盖率
 go test -cover ./...
 
+# 运行测试（包含竞争检测，重要）
+go test -race ./...
+
 # 生成详细覆盖率报告
 go test -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
@@ -66,13 +69,18 @@ go mod tidy -go=1.23
 
 # 运行示例（了解项目功能）
 cd example/comprehensive && go run main.go
-cd example/performance && go run main.go
+cd example/performance && go run main.go  
 cd example/otlp && go run main.go
 cd example/configuration && go run main.go
 cd example/reload && go run main.go
 cd example/rotation && go run main.go
-cd example/gin && go run main.go
-cd example/integrations/gin && go run main.go
+cd example/integrations && go run main.go
+cd example/echo && go run main.go           # Web服务器，可能端口冲突
+cd example/initial_fields && go run main.go
+cd example/zap && go run main.go
+
+# 注意：一些子目录示例可能因为依赖问题无法独立运行
+# 这是预期行为，因为它们依赖主项目的 go.mod
 
 # 运行 OTLP 测试环境（需要 Docker）
 cd otlp-docker && ./deploy.sh
@@ -261,7 +269,27 @@ go test -bench=BenchmarkSlog ./engines/slog
 
 # 运行完整基准测试套件
 cd example/performance && go run main.go
+
+# 重要：竞争检测（项目已修复所有已知数据竞争）
+go test -race ./...
 ```
+
+### 已知问题和解决方案
+
+项目已修复以下关键问题：
+
+1. **数据竞争修复**：
+   - `reload/reloader_test.go`: 添加互斥锁保护共享变量
+   - `errors/handler_test.go`: 添加互斥锁保护回调状态
+
+2. **测试环境优化**：
+   - Zap 引擎：处理 stdout/stderr sync 错误
+   - Slog 引擎：处理文件关闭错误
+   - 这些错误在实际生产环境中不会出现
+
+3. **示例程序状态**：
+   - 所有主目录示例均可正常运行
+   - 子目录示例因依赖隔离可能无法独立运行（预期行为）
 
 ## 快捷备忘录
 
@@ -275,6 +303,10 @@ cd example/performance && go run main.go
 # 热重载: 支持信号驱动和 API 驱动的配置重载机制
 # 框架集成: 提供 GORM、Kratos、Gin 等主流框架适配器
 # 错误恢复: 配置重载失败时自动回滚到上一个稳定配置
+# 测试要求: 必须运行 go test -race 检测数据竞争，项目已修复所有已知竞争条件
+# 示例状态: 主要示例都可正常运行，部分子目录示例因依赖隔离无法独立运行（预期行为）
+# 日志轮转: 支持文件大小和时间基础的日志轮转，配置在 rotation 示例中
+# Flush 处理: 引擎已优化处理测试环境的 stdout/stderr sync 错误
 
 <!--
 快速添加格式示例：

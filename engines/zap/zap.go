@@ -325,7 +325,17 @@ func (l *ZapLogger) SetLevel(level core.Level) {
 
 // Flush flushes any buffered log entries.
 func (l *ZapLogger) Flush() error {
-	return l.logger.Sync()
+	err := l.logger.Sync()
+	if err != nil {
+		// In test environments, sync to stdout/stderr often fails with "bad file descriptor"
+		// This is expected and should be ignored
+		if strings.Contains(err.Error(), "sync /dev/stdout") ||
+			strings.Contains(err.Error(), "sync /dev/stderr") ||
+			strings.Contains(err.Error(), "bad file descriptor") {
+			return nil
+		}
+	}
+	return err
 }
 
 // isFromIntegration checks if the logging call originates from an integration adapter

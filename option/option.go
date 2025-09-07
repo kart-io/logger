@@ -28,8 +28,8 @@ type LogOption struct {
 	InitialFields map[string]interface{} `json:"-" mapstructure:"-"`
 
 	// OTLP configuration (flattened and nested)
-	OTLPEndpoint string      `json:"otlp_endpoint" mapstructure:"otlp_endpoint"`
-	OTLP         *OTLPOption `json:"otlp" mapstructure:"otlp"`
+	OTLPEndpoint string      `json:"otlp_endpoint" mapstructure:"otlp_endpoint" yaml:"otlp_endpoint"`
+	OTLP         *OTLPOption `json:"otlp" mapstructure:"otlp" yaml:"otlp"`
 
 	// Development mode enables caller info and stacktraces
 	Development bool `json:"development" mapstructure:"development"`
@@ -39,18 +39,41 @@ type LogOption struct {
 
 	// DisableStacktrace disables automatic stacktrace capture
 	DisableStacktrace bool `json:"disable_stacktrace" mapstructure:"disable_stacktrace"`
+
+	// Rotation configuration for file output (only applies when writing to files, not for OTLP)
+	Rotation *RotationOption `json:"rotation" mapstructure:"rotation" yaml:"rotation"`
+}
+
+// RotationOption contains log file rotation configuration.
+// This configuration only applies to file outputs, not OTLP endpoints.
+type RotationOption struct {
+	// MaxSize is the maximum size in megabytes of the log file before it gets rotated
+	MaxSize int `json:"max_size" mapstructure:"max_size" yaml:"max_size"`
+
+	// MaxAge is the maximum number of days to retain old log files
+	MaxAge int `json:"max_age" mapstructure:"max_age" yaml:"max_age"`
+
+	// MaxBackups is the maximum number of old log files to retain
+	MaxBackups int `json:"max_backups" mapstructure:"max_backups" yaml:"max_backups"`
+
+	// Compress determines if the rotated log files should be compressed using gzip
+	Compress bool `json:"compress" mapstructure:"compress" yaml:"compress"`
+
+	// RotateInterval specifies the rotation interval (e.g., "24h", "7d")
+	// This is parsed as time.Duration, common values: "1h", "24h", "7d"
+	RotateInterval string `json:"rotate_interval" mapstructure:"rotate_interval" yaml:"rotate_interval"`
 }
 
 // OTLPOption contains OTLP-specific configuration.
 // ServiceName and ServiceVersion are handled via -ldflags during build time
 // using the github.com/kart-io/version package.
 type OTLPOption struct {
-	Enabled  *bool             `json:"enabled" mapstructure:"enabled"`
-	Endpoint string            `json:"endpoint" mapstructure:"endpoint"`
-	Protocol string            `json:"protocol" mapstructure:"protocol"`
-	Timeout  time.Duration     `json:"timeout" mapstructure:"timeout"`
-	Headers  map[string]string `json:"headers" mapstructure:"headers"`
-	Insecure bool              `json:"insecure" mapstructure:"insecure"`
+	Enabled  *bool             `json:"enabled" mapstructure:"enabled" yaml:"enabled"`
+	Endpoint string            `json:"endpoint" mapstructure:"endpoint" yaml:"endpoint"`
+	Protocol string            `json:"protocol" mapstructure:"protocol" yaml:"protocol"`
+	Timeout  time.Duration     `json:"timeout" mapstructure:"timeout" yaml:"timeout"`
+	Headers  map[string]string `json:"headers" mapstructure:"headers" yaml:"headers"`
+	Insecure bool              `json:"insecure" mapstructure:"insecure" yaml:"insecure"`
 }
 
 // DefaultLogOption returns a configuration with sensible defaults.
@@ -67,6 +90,13 @@ func DefaultLogOption() *LogOption {
 			Protocol: "grpc",
 			Timeout:  10 * time.Second,
 			Insecure: true, // Default to insecure for development
+		},
+		Rotation: &RotationOption{
+			MaxSize:        100,  // 100MB
+			MaxAge:         15,   // 15 days
+			MaxBackups:     30,   // 30 backup files
+			Compress:       true, // Compress old files
+			RotateInterval: "7d", // Rotate every 7 days
 		},
 	}
 }
@@ -89,6 +119,16 @@ func (opt *LogOption) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&opt.OTLP.Endpoint, "otlp.endpoint", "", "OTLP nested endpoint URL")
 	fs.StringVar(&opt.OTLP.Protocol, "otlp.protocol", "grpc", "OTLP protocol (grpc|http)")
 	fs.DurationVar(&opt.OTLP.Timeout, "otlp.timeout", 10*time.Second, "OTLP timeout duration")
+
+	// Rotation options (only applies to file outputs)
+	if opt.Rotation == nil {
+		opt.Rotation = &RotationOption{}
+	}
+	fs.IntVar(&opt.Rotation.MaxSize, "rotation.max-size", 100, "Maximum size in MB of the log file before rotation")
+	fs.IntVar(&opt.Rotation.MaxAge, "rotation.max-age", 15, "Maximum number of days to retain old log files")
+	fs.IntVar(&opt.Rotation.MaxBackups, "rotation.max-backups", 30, "Maximum number of old log files to retain")
+	fs.BoolVar(&opt.Rotation.Compress, "rotation.compress", true, "Compress rotated log files using gzip")
+	fs.StringVar(&opt.Rotation.RotateInterval, "rotation.rotate-interval", "7d", "Log rotation interval (e.g., 1h, 24h, 7d)")
 }
 
 // Validate checks the configuration for consistency and applies intelligent defaults.
@@ -108,6 +148,11 @@ func (opt *LogOption) Validate() error {
 	// Validate engine selection
 	if opt.Engine != "zap" && opt.Engine != "slog" {
 		opt.Engine = "slog" // Default fallback
+	}
+
+	// Validate rotation configuration
+	if err := opt.validateRotationConfig(); err != nil {
+		return err
 	}
 
 	return nil
@@ -209,4 +254,88 @@ func (opt *LogOption) GetInitialFields() map[string]interface{} {
 	}
 
 	return fields
+}
+
+// validateRotationConfig validates log rotation configuration.
+// Rotation is only applicable for file outputs, not OTLP endpoints.
+func (opt *LogOption) validateRotationConfig() error {
+	if opt.Rotation == nil {
+		return nil // No rotation config is valid
+	}
+
+	rotation := opt.Rotation
+
+	// Validate MaxSize (must be positive)
+	if rotation.MaxSize < 0 {
+		return fmt.Errorf("rotation max_size must be non-negative, got %d", rotation.MaxSize)
+	}
+
+	// Validate MaxAge (must be non-negative)
+	if rotation.MaxAge < 0 {
+		return fmt.Errorf("rotation max_age must be non-negative, got %d", rotation.MaxAge)
+	}
+
+	// Validate MaxBackups (must be non-negative)
+	if rotation.MaxBackups < 0 {
+		return fmt.Errorf("rotation max_backups must be non-negative, got %d", rotation.MaxBackups)
+	}
+
+	// Validate RotateInterval if provided
+	if rotation.RotateInterval != "" {
+		validFormats := []string{"1h", "24h", "1d", "7d"}
+		isValidFormat := false
+
+		// First try parsing as duration
+		if _, err := time.ParseDuration(rotation.RotateInterval); err == nil {
+			isValidFormat = true
+		} else {
+			// Check against common formats
+			for _, format := range validFormats {
+				if rotation.RotateInterval == format {
+					isValidFormat = true
+					break
+				}
+			}
+		}
+
+		if !isValidFormat {
+			return fmt.Errorf("invalid rotation rotate_interval '%s': must be a valid duration (e.g., '1h', '24h') or common format ('1d', '7d')", rotation.RotateInterval)
+		}
+	}
+
+	// Apply sensible defaults ONLY if values are zero/empty
+	// This preserves user-configured non-zero values
+	if rotation.MaxSize <= 0 {
+		rotation.MaxSize = 100 // 100MB default
+	}
+	if rotation.MaxAge <= 0 {
+		rotation.MaxAge = 15 // 15 days default
+	}
+	if rotation.MaxBackups <= 0 {
+		rotation.MaxBackups = 30 // 30 files default
+	}
+	if rotation.RotateInterval == "" {
+		rotation.RotateInterval = "7d" // 7 days default
+	}
+
+	return nil
+}
+
+// IsRotationEnabled returns true if log rotation is configured and applicable.
+// Rotation only applies when writing to files, not for OTLP-only configurations.
+func (opt *LogOption) IsRotationEnabled() bool {
+	if opt.Rotation == nil {
+		return false
+	}
+
+	// Check if any file outputs are configured
+	hasFileOutput := false
+	for _, path := range opt.OutputPaths {
+		if path != "stdout" && path != "stderr" {
+			hasFileOutput = true
+			break
+		}
+	}
+
+	return hasFileOutput
 }
